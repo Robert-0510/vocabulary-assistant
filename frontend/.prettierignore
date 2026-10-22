@@ -1,0 +1,8 @@
+node_modules
+dist
+coverage
+package-lock.json
+src/components.d.ts
+*.md
+*.bat
+public

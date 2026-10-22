@@ -1,0 +1,20 @@
+[project]
+name = "vocabulary-assistant-backend"
+version = "1.0.0"
+description = "背单词助手后端（FastAPI + SQLAlchemy + MySQL）"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+extend-exclude = [".venv", "build", "dist", "__pycache__"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+# B008：FastAPI 的 Depends/File 必须写在参数默认值里，属框架约定。
+ignore = ["E501", "B008"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

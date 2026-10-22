@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="背单词助手">
+  <rect width="64" height="64" rx="14" fill="#409eff"/>
+  <path d="M16 18h13c4 0 7 3 7 7v23c0-3-2-5-5-5H16z" fill="#fff" opacity=".95"/>
+  <path d="M48 18H35c-4 0-7 3-7 7v23c0-3 2-5 5-5h15z" fill="#fff" opacity=".75"/>
+  <path d="M22 29h9M22 35h9M37 29h6M37 35h6" stroke="#409eff" stroke-width="2.2" stroke-linecap="round"/>
+</svg>

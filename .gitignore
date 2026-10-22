@@ -1,0 +1,50 @@
+# Python
+backend/.venv/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.ruff_cache/
+*.egg-info/
+
+# 构建产物
+backend/build/
+backend/dist/
+backend/*.spec
+frontend/dist/
+build/
+dist/
+
+# 环境配置（含数据库密码）
+backend/.env
+.env
+.env.local
+.env.*.local
+
+# Node
+frontend/node_modules/
+node_modules/
+*.tsbuildinfo
+frontend/src/components.d.ts
+
+# 编辑器 / 系统
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*.swp
+
+# 日志 / 临时文件
+*.log
+logs/
+
+# 发布产物
+release/
+
+# 本地私有资料（版权/个人数据，不进入仓库）
+_local_only/
+private/
+*.backup.json
