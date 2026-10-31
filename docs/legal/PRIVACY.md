@@ -37,9 +37,9 @@
 
 ## 5. 第三方依赖
 
-前端与后端依赖的开源组件见 [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md)。
+前端与后端依赖的开源组件见 [LICENSES/THIRD_PARTY_NOTICES.md](../../LICENSES/THIRD_PARTY_NOTICES.md)。
 这些组件本身不会主动收集数据；第三方发音服务适用其各自的隐私政策。
 
 ## 6. 变更
 
-隐私相关的实现发生变化时，我们会更新本文档并在 [CHANGELOG.md](../CHANGELOG.md) 中记录。
+隐私相关的实现发生变化时，我们会更新本文档并在 [CHANGELOG.md](../../CHANGELOG.md) 中记录。

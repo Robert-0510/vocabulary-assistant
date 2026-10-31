@@ -1,6 +1,6 @@
 # 第三方组件与许可
 
-本项目以 MIT 许可证发布（见 [LICENSE](LICENSE)）。运行或构建本项目会使用以下第三方组件，
+本项目以 MIT 许可证发布（见 [LICENSE](../LICENSE)）。运行或构建本项目会使用以下第三方组件，
 它们分别遵循各自的许可证。发布二进制或源码时请保留本文件以及各组件自带的许可证文本。
 
 版本号以 `backend/requirements.lock.txt` 与 `frontend/package-lock.json` 为准。
@@ -48,11 +48,11 @@ This product includes software developed at
 The Apache Software Foundation (https://www.apache.org/).
 ```
 
-完整的 Apache-2.0 与 BSD-3-Clause 许可证文本见 [LICENSES/](LICENSES/)。
+完整的 Apache-2.0 与 BSD-3-Clause 许可证文本见 [本目录](./)。
 
 ## 数据与内容
 
-- 仓库中的 `sample/示例词书.md` 为项目自编示例，随 MIT 许可证提供。
+- 仓库根目录的 `sample/示例词书.md` 为项目自编示例，随 MIT 许可证提供。
 - 本项目不再分发任何第三方备考资料。用户自行导入的词书内容由用户自行负责其版权与使用权。
 - 发音功能可能调用浏览器 Web Speech API 或 `dict.youdao.com` 的公开语音接口；
   这些服务由第三方提供，不在本项目许可证覆盖范围内。

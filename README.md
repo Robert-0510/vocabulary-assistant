@@ -175,7 +175,7 @@ curl -b cookies.txt -F "file=@backup.json" http://127.0.0.1:8000/api/import
   的公开发音音频。该请求只发送当前单词，由浏览器直接发起。
 - 服务只监听 `127.0.0.1`，不要直接暴露到公网或不可信局域网。
 
-完整说明见 [docs/PRIVACY.md](docs/PRIVACY.md)。
+完整说明见 [docs/legal/PRIVACY.md](docs/legal/PRIVACY.md)。
 
 ## 安全说明
 
@@ -185,7 +185,7 @@ curl -b cookies.txt -F "file=@backup.json" http://127.0.0.1:8000/api/import
 - 上传与导入都有服务端大小 / 数量 / 字段长度限制，不能依赖前端校验。
 - 打包版同源托管前端，已禁用 CORS；源码开发模式只允许本机 Vite 地址。
 - `COOKIE_SECURE=false` 仅为本地 HTTP 默认值；放在 HTTPS 反向代理后请改为 `true`。
-- 漏洞报告方式见 [SECURITY.md](SECURITY.md)。
+- 漏洞报告方式见 [.github/SECURITY.md](.github/SECURITY.md)。
 
 ## 常见问题
 
@@ -247,7 +247,7 @@ backend\.venv\Scripts\python.exe scripts\package_release.py
 backend\.venv\Scripts\python.exe scripts\package_release.py --with-exe
 ```
 
-发布前请逐项检查 [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md)。
+发布前请逐项检查 [docs/operations/RELEASE_CHECKLIST.md](docs/operations/RELEASE_CHECKLIST.md)。
 
 ## 公开发布计划（P0 / P1）
 
@@ -264,15 +264,15 @@ backend\.venv\Scripts\python.exe scripts\package_release.py --with-exe
 
 ### P0：发布前必须完成
 
-- [x] 新增 MIT `LICENSE` 与 `THIRD_PARTY_NOTICES.md`
+- [x] 新增 MIT `LICENSE` 与 `LICENSES/THIRD_PARTY_NOTICES.md`
 - [x] 移除受版权保护的 GRE PDF / 派生 Markdown / 提取脚本（已备份到项目外）
 - [x] 补齐 `.gitignore`（`.env`、`backend/dist`、`frontend/dist`、依赖、构建产物）
 - [x] 新增 `.gitattributes`、`.editorconfig`
 - [x] 删除写死绝对路径的过期 PyInstaller spec
 - [x] 初始化 git 仓库并提交（不推送远程）
 - [x] 新增 GitHub Actions CI（后端 MySQL 测试、前端 lint/test/build、仓库卫生）
-- [x] 重写 README，修正 `docs/项目介绍与方案设计.md` 中的过时描述
-- [x] 新增 `docs/PRIVACY.md`、`SECURITY.md`、`CONTRIBUTING.md`、`CODE_OF_CONDUCT.md`
+- [x] 重写 README，修正 `docs/design/项目介绍与方案设计.md` 中的过时描述
+- [x] 新增 `docs/legal/PRIVACY.md`、`.github/SECURITY.md`、`.github/CONTRIBUTING.md`、`.github/CODE_OF_CONDUCT.md`
 - [x] 明确分发形态：Windows exe / 源码；MySQL 为前置条件；未签名 exe 的 SmartScreen 提示
 - [x] 修复打包：相对路径、图标、版本信息、校验和、许可文件随包
 - [x] 锁定依赖版本（后端精确 pin，前端 `package-lock.json`）
@@ -314,7 +314,7 @@ backend\.venv\Scripts\python.exe scripts\package_release.py --with-exe
 
 - [x] README 全面重写（安装、配置、备份、隐私、安全、FAQ、开发、构建）
 - [x] `CHANGELOG.md` 1.0.0
-- [x] `docs/RELEASE_CHECKLIST.md` 发布清单
+- [x] `docs/operations/RELEASE_CHECKLIST.md` 发布清单
 - [x] `scripts/package_release.py` 发布打包（排除密钥与构建产物）
 - [x] `scripts/check_repo_hygiene.py` 仓库卫生检查
 - [x] ESLint / Prettier / Ruff 配置与 CI 检查
@@ -357,12 +357,15 @@ python scripts/check_repo_hygiene.py
 ## 许可证与贡献
 
 - 许可证：[MIT](LICENSE)
-- 第三方组件与许可：[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
-- 隐私说明：[docs/PRIVACY.md](docs/PRIVACY.md)
-- 数据库迁移：[docs/MIGRATIONS.md](docs/MIGRATIONS.md)
-- 安全策略：[SECURITY.md](SECURITY.md)
-- 贡献指南：[CONTRIBUTING.md](CONTRIBUTING.md)
-- 行为准则：[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+- 第三方组件与许可：[LICENSES/THIRD_PARTY_NOTICES.md](LICENSES/THIRD_PARTY_NOTICES.md)
+- 隐私说明：[docs/legal/PRIVACY.md](docs/legal/PRIVACY.md)
+- 数据库迁移：[docs/operations/MIGRATIONS.md](docs/operations/MIGRATIONS.md)
+- 发布清单：[docs/operations/RELEASE_CHECKLIST.md](docs/operations/RELEASE_CHECKLIST.md)
+- 项目设计：[docs/design/项目介绍与方案设计.md](docs/design/项目介绍与方案设计.md)
+- FSRS 原理、效果与调度优化：[docs/design/FSRS原理效果与优化清单.md](docs/design/FSRS原理效果与优化清单.md)
+- 安全策略：[.github/SECURITY.md](.github/SECURITY.md)
+- 贡献指南：[.github/CONTRIBUTING.md](.github/CONTRIBUTING.md)
+- 行为准则：[.github/CODE_OF_CONDUCT.md](.github/CODE_OF_CONDUCT.md)
 - 更新日志：[CHANGELOG.md](CHANGELOG.md)
 
 欢迎提交 Issue / PR。提交前请先阅读贡献指南并确保本地检查通过。

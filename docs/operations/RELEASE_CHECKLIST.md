@@ -71,7 +71,7 @@ backend\.venv\Scripts\python.exe scripts\package_release.py --with-exe
 
 - [ ] exe 可启动，浏览器打开 `http://127.0.0.1:8000`
 - [ ] `%APPDATA%\背单词助手\.env` 首次生成，修改数据库口令后可连接
-- [ ] exe 同目录包含 LICENSE / README / THIRD_PARTY_NOTICES / PRIVACY / CHANGELOG
+- [ ] 发布包根目录包含 LICENSE / README / LICENSES/THIRD_PARTY_NOTICES / docs/legal/PRIVACY / CHANGELOG
 - [ ] 记录并公布 exe 与 zip 的 SHA-256
 - [ ] 解压发布包确认不含 `.env`、数据库口令、GRE 资料、旧 exe、`node_modules`
 
