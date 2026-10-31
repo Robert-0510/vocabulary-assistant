@@ -271,7 +271,7 @@ backend\.venv\Scripts\python.exe scripts\package_release.py --with-exe
 - [x] 删除写死绝对路径的过期 PyInstaller spec
 - [x] 初始化 git 仓库并提交（不推送远程）
 - [x] 新增 GitHub Actions CI（后端 MySQL 测试、前端 lint/test/build、仓库卫生）
-- [x] 重写 README，修正 `docs/设计方案.md` 中的过时描述
+- [x] 重写 README，修正 `docs/项目介绍与方案设计.md` 中的过时描述
 - [x] 新增 `docs/PRIVACY.md`、`SECURITY.md`、`CONTRIBUTING.md`、`CODE_OF_CONDUCT.md`
 - [x] 明确分发形态：Windows exe / 源码；MySQL 为前置条件；未签名 exe 的 SmartScreen 提示
 - [x] 修复打包：相对路径、图标、版本信息、校验和、许可文件随包
