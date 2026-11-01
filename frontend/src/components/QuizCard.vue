@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import type { StudyWord } from '@/api/types'
+import type { LegacyQuiz, StudyWord } from '@/api/types'
 import { pronounce } from '@/utils/speech'
 import PronounceButton from './PronounceButton.vue'
 
 const props = defineProps<{
   word: StudyWord
-  quiz: NonNullable<StudyWord['quiz']>
+  quiz: LegacyQuiz
   label: string
 }>()
 

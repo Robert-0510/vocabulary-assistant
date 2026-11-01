@@ -21,8 +21,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 STATUS_VALUES = ("new", "learning", "reviewing", "mastered")
-PHASE_VALUES = ("new_first", "new_quiz", "review", "relearn")
-RESULT_VALUES = ("know", "unknown", "master", "correct", "wrong")
+PHASE_VALUES = ("new_first", "new_quiz", "review", "relearn", "meaning", "group")
+RESULT_VALUES = ("know", "unknown", "master", "correct", "wrong", "partial")
 
 
 class User(Base):
@@ -182,3 +182,77 @@ class AppSetting(Base):
     active_book_id: Mapped[int | None] = mapped_column(
         BigInteger, ForeignKey("word_books.id", ondelete="SET NULL")
     )
+
+
+class Sense(Base):
+    """义项顶点（二部图右侧）。
+
+    label_zh 是规范名（短中文义项），不同措辞放 word_senses.gloss_raw；
+    合并只留痕：旧顶点 status='retired' + merged_into 指向规范义项。
+    """
+
+    __tablename__ = "senses"
+    __table_args__ = (
+        UniqueConstraint("book_id", "label_zh", "pos", name="uq_sense_book_label_pos"),
+        Index("ix_sense_book_status", "book_id", "status"),
+        {"mysql_charset": "utf8mb4"},
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    book_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("word_books.id", ondelete="CASCADE"), nullable=False
+    )
+    label_zh: Mapped[str] = mapped_column(String(120), nullable=False)
+    definition_en: Mapped[str | None] = mapped_column(String(400))
+    pos: Mapped[str] = mapped_column(String(16), nullable=False, default="adj")
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="needs_review")
+    merged_into: Mapped[int | None] = mapped_column(BigInteger)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class WordSense(Base):
+    """词—义项关联（二部图的边）。"""
+
+    __tablename__ = "word_senses"
+    __table_args__ = (
+        UniqueConstraint("word_id", "sense_id", name="uq_word_sense"),
+        Index("ix_ws_sense_status", "sense_id", "status"),
+        Index("ix_ws_word_status", "word_id", "status"),
+        {"mysql_charset": "utf8mb4"},
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    book_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    word_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("words.id", ondelete="CASCADE"), nullable=False
+    )
+    sense_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("senses.id", ondelete="CASCADE"), nullable=False
+    )
+    gloss_raw: Mapped[str | None] = mapped_column(String(200))
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="active")
+
+
+class SenseState(Base):
+    """义项卡（FSRS），字段与 word_states 完全一致。"""
+
+    __tablename__ = "sense_states"
+    __table_args__ = (
+        Index("ix_sense_states_due", "due"),
+        {"mysql_charset": "utf8mb4"},
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    sense_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("senses.id", ondelete="CASCADE"), unique=True, nullable=False
+    )
+    book_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    state: Mapped[int] = mapped_column(SmallInteger, default=1, nullable=False)
+    step: Mapped[int | None] = mapped_column(SmallInteger)
+    stability: Mapped[float | None] = mapped_column(Numeric(12, 4))
+    difficulty: Mapped[float | None] = mapped_column(Numeric(12, 4))
+    reps: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    lapses: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    due: Mapped[datetime | None] = mapped_column(DateTime)
+    last_review: Mapped[datetime | None] = mapped_column(DateTime)
+    status: Mapped[str] = mapped_column(String(16), default="new", nullable=False)

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """把一套真题（questions.pdf + answers.xlsx）导入成结构化派生数据。
 
 只做文件 → JSON，不连数据库、不联网。产物落在 <session>/derived/ 下：
@@ -12,6 +11,7 @@ PDF 解析是独立的一步：本脚本只消费 <session>/derived/items.json�
 用法：
     python scripts/import_exam.py private/exams/<session-id>
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -25,7 +25,7 @@ try:
     from openpyxl import load_workbook
 except ImportError:  # pragma: no cover
     print("缺少 openpyxl：pip install -r backend/requirements-import.txt", file=sys.stderr)
-    raise SystemExit(2)
+    raise SystemExit(2) from None
 
 LETTER = re.compile(r"^[A-Fa-f]$")
 
@@ -46,7 +46,10 @@ def sha256(path: Path) -> str:
 def read_answers(path: Path) -> list[dict]:
     wb = load_workbook(path, data_only=True, read_only=True)
     ws = wb["answers"] if "answers" in wb.sheetnames else wb[wb.sheetnames[0]]
-    head = [str(c.value).strip() if c.value is not None else "" for c in next(ws.iter_rows(min_row=1, max_row=1))]
+    head = [
+        str(c.value).strip() if c.value is not None else ""
+        for c in next(ws.iter_rows(min_row=1, max_row=1))
+    ]
     idx = {name: i for i, name in enumerate(head)}
     for required in ("题号", "答案A", "答案B"):
         if required not in idx:
@@ -103,7 +106,9 @@ def main(argv: list[str]) -> int:
         for value in (a, b):
             if LETTER.match(value):
                 if not mapping:
-                    problems.append(f"题号 {no}：答案 {value} 是字母，但缺少 derived/items.json，无法映射")
+                    problems.append(
+                        f"题号 {no}：答案 {value} 是字母，但缺少 derived/items.json，无法映射"
+                    )
                     break
                 word = mapping.get(value.upper())
                 if not word:
@@ -134,7 +139,8 @@ def main(argv: list[str]) -> int:
         edges.append({"a": row["a"], "b": row["b"], "item_no": row["no"], "evidence": "exam"})
 
     (derived / "answers.json").write_text(
-        json.dumps({"session": session, "items": resolved}, ensure_ascii=False, indent=2), encoding="utf-8"
+        json.dumps({"session": session, "items": resolved}, ensure_ascii=False, indent=2),
+        encoding="utf-8",
     )
     (derived / "edges.json").write_text(
         json.dumps(
@@ -167,7 +173,9 @@ def main(argv: list[str]) -> int:
     )
 
     print(f"session：{session}")
-    print(f"  题目 {len(resolved)} 道；等价边 {len(edges)} 条；唯一词对 {len(seen)}；重复出现 {manifest['counts']['repeated_pairs']} 对")
+    print(
+        f"  题目 {len(resolved)} 道；等价边 {len(edges)} 条；唯一词对 {len(seen)}；重复出现 {manifest['counts']['repeated_pairs']} 对"
+    )
     print(f"  产物：{derived}（answers.json / edges.json）+ manifest.json")
     return 0
 

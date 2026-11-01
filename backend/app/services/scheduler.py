@@ -1,10 +1,10 @@
 """FSRS 间隔重复调度（基于官方 py-fsrs 实现，取代原 SM-2 变体）。
 
 评分映射（应用交互 → FSRS Rating）：
-- 不认识 / 答错 → Again（遗忘，未毕业，当日重学）
-- 认识 / 答对   → Good（毕业进入复习）
+- 不认识 / 答错 / 全错 → Again（遗忘，未毕业，当日重学）
+- 认识 / 答对 / 全对   → Good（毕业进入复习）
+- 部分正确（多选漏选但未全错） → Hard（义项级 / 多选首次启用的档位）
 - 熟知          → Easy（更长的复习间隔）
-- Hard 暂不使用
 
 学习/重学步进设为单步 1 分钟：让「不认识 / 答错」的卡片保持未毕业状态、
 由前端会话内队列当日重学，答对即毕业进入 Review。day 级间隔由 FSRS
@@ -25,6 +25,7 @@ RESULT_TO_RATING: dict[str, Rating] = {
     "wrong": Rating.Again,
     "know": Rating.Good,
     "correct": Rating.Good,
+    "partial": Rating.Hard,
     "master": Rating.Easy,
 }
 

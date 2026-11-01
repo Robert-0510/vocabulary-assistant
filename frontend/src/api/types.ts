@@ -49,12 +49,28 @@ export interface WordPage {
   items: WordRow[]
 }
 
-export interface Quiz {
+export interface QuizOption {
+  id: number
+  text: string
+}
+
+/** 旧题型：前端本地判分（词书没有义项数据时的兜底）。 */
+export interface LegacyQuiz {
   type: 'en2cn' | 'cn2en' | 'cloze'
   question: string
   options: string[]
   answer_index: number
 }
+
+/** 新题型：服务端判分，响应不含正确集合。 */
+export interface MultiQuiz {
+  type: 'meaning_multi' | 'equiv_group'
+  question: string
+  options: QuizOption[]
+  option_count: number
+}
+
+export type Quiz = LegacyQuiz | MultiQuiz
 
 export interface StudyWord {
   id: number
@@ -70,8 +86,32 @@ export interface StudyWord {
 export interface TodayTask {
   new_words: StudyWord[]
   review_words: StudyWord[]
+  sense_items: StudyWord[]
+  sense_target: number
   new_target: number
   review_target: number
+}
+
+export type MultiResult = 'correct' | 'partial' | 'wrong'
+
+/** 服务端判分结果（作答后回传，用于结果面板展示漏选/错选）。 */
+export interface GradedAnswer {
+  result: MultiResult
+  selectedIds: number[]
+  correctIds: number[]
+  correctTotal: number
+  selectedCorrect: number
+}
+
+export interface AnswerResult {
+  status: string
+  stability: number | null
+  difficulty: number | null
+  due_date: string | null
+  result: string | null
+  selected_correct: number
+  correct_total: number
+  correct_ids: number[]
 }
 
 export interface Progress {

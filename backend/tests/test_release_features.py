@@ -242,8 +242,9 @@ def test_today_task_does_not_issue_per_word_queries(auth_client):
     book_id = upload(auth_client, "\n".join(lines), "big.md").json()["book_id"]
     auth_client.put("/api/settings", json={"new_per_day": 40, "review_per_day": 50})
 
-    from app.database import engine
     from sqlalchemy import event
+
+    from app.database import engine
 
     statements: list[str] = []
 

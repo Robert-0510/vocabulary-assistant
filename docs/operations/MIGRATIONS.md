@@ -9,12 +9,13 @@
 | 1 | 基线（最初由 `create_all` 建表） | 否 |
 | 2 | 用 FSRS 列替换旧的 SM-2 列（`ease` / `interval_days` / `due_date` / `last_review_at`） | **是**：先清空词书/单词/状态/流水 |
 | 3 | 引入多账号：给业务表补 `user_id`、重建 `settings` | **是**：清空账号体系之前的无主数据 |
+| 4 | 二部图三表 `senses` / `word_senses` / `sense_states`；扩展 `study_logs.phase`（`meaning`/`group`）与 `result`（`partial`） | 否：只增表 / 扩枚举，不动既有数据 |
 
 ## 全新数据库
 
 先检查数据库中是否已有 `word_books` / `users` / `schema_migrations`：
 
-- **没有**（全新库）：`create_all` 直接按当前模型建表，然后把版本 1/2/3 全部标记为已应用。
+- **没有**（全新库）：`create_all` 直接按当前模型建表，然后把版本 1/2/3/4 全部标记为已应用。
   不会执行版本 2/3 中的 `DELETE FROM`。
 - **有**（旧库升级）：保留原有路径，按序执行尚未应用的迁移。
 

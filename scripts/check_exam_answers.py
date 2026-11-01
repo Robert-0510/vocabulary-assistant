@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """校验真题答案 Excel 的格式（不读 PDF，不写数据库）。
 
 用法：
@@ -6,6 +5,7 @@
 
 退出码：0 = 通过；1 = 有错误；2 = 缺依赖。
 """
+
 from __future__ import annotations
 
 import re
@@ -16,7 +16,7 @@ try:
     from openpyxl import load_workbook
 except ImportError:  # pragma: no cover
     print("缺少 openpyxl：pip install -r backend/requirements-import.txt", file=sys.stderr)
-    raise SystemExit(2)
+    raise SystemExit(2) from None
 
 REQUIRED = ("题号", "答案A", "答案B")
 LETTER = re.compile(r"^[A-Fa-f]$")
@@ -92,7 +92,9 @@ def main(argv: list[str]) -> int:
             elif WORDLIKE.match(value):
                 words += 1
             else:
-                errors.append(f"第 {row_no} 行：{label}={value!r} 既不是 A–F 字母，也不是英文单词/短语")
+                errors.append(
+                    f"第 {row_no} 行：{label}={value!r} 既不是 A–F 字母，也不是英文单词/短语"
+                )
 
         if a and b and a.lower() == b.lower():
             errors.append(f"第 {row_no} 行：两个答案相同（{a}）")
@@ -100,7 +102,9 @@ def main(argv: list[str]) -> int:
     if rows == 0:
         errors.append("没有数据行（除表头外为空）")
     if letters and words:
-        warnings.append(f"同一文件混用字母与单词（字母 {letters} 个 / 单词 {words} 个）：字母需要同目录 questions.pdf 才能映射")
+        warnings.append(
+            f"同一文件混用字母与单词（字母 {letters} 个 / 单词 {words} 个）：字母需要同目录 questions.pdf 才能映射"
+        )
     if letters:
         pdf = path.with_name("questions.pdf")
         if not pdf.exists():

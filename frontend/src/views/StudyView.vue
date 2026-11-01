@@ -1,14 +1,32 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import EquivGroupCard from '@/components/EquivGroupCard.vue'
+import MeaningMultiCard from '@/components/MeaningMultiCard.vue'
 import QuizCard from '@/components/QuizCard.vue'
 import PronounceButton from '@/components/PronounceButton.vue'
 import WordDetailCard from '@/components/WordDetailCard.vue'
+import type { LegacyQuiz, MultiQuiz } from '@/api/types'
 import { useStudyStore } from '@/stores/study'
 import { pronounce } from '@/utils/speech'
 
 const store = useStudyStore()
 const router = useRouter()
+
+const meaningQuiz = computed<MultiQuiz | null>(() => {
+  const quiz = store.current?.word.quiz
+  return quiz?.type === 'meaning_multi' ? quiz : null
+})
+const equivQuiz = computed<MultiQuiz | null>(() => {
+  const quiz = store.current?.word.quiz
+  return quiz?.type === 'equiv_group' ? quiz : null
+})
+const legacyQuiz = computed<LegacyQuiz | null>(() => {
+  const quiz = store.current?.word.quiz
+  if (!quiz) return null
+  if (quiz.type === 'en2cn' || quiz.type === 'cn2en' || quiz.type === 'cloze') return quiz
+  return null
+})
 
 onMounted(() => {
   store.loadToday()
@@ -30,8 +48,11 @@ function onKey(e: KeyboardEvent) {
   const item = store.current
   if (store.loading || store.finished || !item) return
   if (e.code === 'Space') {
-    e.preventDefault()
-    pronounce(item.word.spelling)
+    // 测试卡内部自己处理空格发音，避免重复朗读
+    if (item.step === 'intro' || item.step === 'detail') {
+      e.preventDefault()
+      pronounce(item.word.spelling)
+    }
     return
   }
   if (item.step === 'intro') {
@@ -41,13 +62,17 @@ function onKey(e: KeyboardEvent) {
   } else if (item.step === 'detail') {
     if (e.key === 'Enter' || e.key === '1') store.continueNext()
   }
-  // quiz / recheck 步骤的按键由 QuizCard 内部处理（1-4 选答案）
+  // quiz / recheck / meaning / group 的按键由卡片内部处理
 }
 
 const quizLabel = () => {
   const item = store.current
   if (!item) return ''
+  if (item.kind === 'sense') return '等价组'
   if (item.step === 'recheck') return '快速复查'
+  if (item.word.quiz?.type === 'meaning_multi') {
+    return item.kind === 'new' ? '新词释义' : '复习释义'
+  }
   return item.kind === 'new' ? '新词测试' : '复习测试'
 }
 </script>
@@ -90,7 +115,8 @@ const quizLabel = () => {
       <div class="done-emoji">🎉</div>
       <h2>今日任务完成！</h2>
       <p class="done-summary">
-        新学 <b>{{ store.newDone }}</b> 个单词 · 复习 <b>{{ store.reviewDone }}</b> 个单词
+        新学 <b>{{ store.newDone }}</b> 个单词 · 复习 <b>{{ store.reviewDone }}</b> 个单词 · 义项
+        <b>{{ store.senseDone }}</b> 组
       </p>
       <div class="done-btns">
         <el-button type="primary" size="large" @click="router.push('/stats')">查看统计</el-button>
@@ -108,7 +134,8 @@ const quizLabel = () => {
         />
         <div class="counters" aria-live="polite">
           新词 {{ store.newDone }}/{{ store.newTarget || store.newDone }} · 复习
-          {{ store.reviewDone }}/{{ store.reviewTarget || store.reviewDone }} · 进度
+          {{ store.reviewDone }}/{{ store.reviewTarget || store.reviewDone }} · 义项
+          {{ store.senseDone }}/{{ store.senseTarget || store.senseDone }} · 进度
           {{ store.graduated }}/{{ store.totalGraduate }}
         </div>
         <el-button text type="info" @click="router.push('/')">结束学习</el-button>
@@ -151,12 +178,36 @@ const quizLabel = () => {
           </el-button>
         </div>
 
-        <!-- 测试卡 -->
+        <!-- 多选释义（meaning_multi） -->
+        <MeaningMultiCard
+          v-else-if="meaningQuiz"
+          :key="store.current.key + '-meaning'"
+          :word="store.current.word"
+          :quiz="meaningQuiz"
+          :label="quizLabel()"
+          :graded="store.graded"
+          @submit="store.answerMulti"
+          @next="store.continueAfterMulti"
+        />
+
+        <!-- 等价组（equiv_group） -->
+        <EquivGroupCard
+          v-else-if="equivQuiz"
+          :key="store.current.key + '-group'"
+          :word="store.current.word"
+          :quiz="equivQuiz"
+          :label="quizLabel()"
+          :graded="store.graded"
+          @submit="store.answerMulti"
+          @next="store.continueAfterMulti"
+        />
+
+        <!-- 旧题型兜底 -->
         <QuizCard
-          v-else
+          v-else-if="legacyQuiz"
           :key="store.current.key + '-' + store.current.step"
           :word="store.current.word"
-          :quiz="store.current.word.quiz!"
+          :quiz="legacyQuiz"
           :label="quizLabel()"
           @answered="store.answerQuiz"
           @next="store.continueNext"
@@ -171,6 +222,9 @@ const quizLabel = () => {
         </template>
         <template v-else-if="store.current.step === 'detail'">
           · <span class="kbd-hint">回车</span>继续
+        </template>
+        <template v-else-if="store.current.step === 'meaning' || store.current.step === 'group'">
+          · <span class="kbd-hint">1-9</span>选择 · <span class="kbd-hint">回车</span>确定/继续
         </template>
         <template v-else> · <span class="kbd-hint">1-4</span>选择答案 </template>
       </div>

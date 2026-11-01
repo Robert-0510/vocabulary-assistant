@@ -13,7 +13,15 @@ from sqlalchemy import inspect, select, text
 from sqlalchemy.engine import Connection
 
 from app.database import Base, engine
-from app.models import AppSetting, SchemaMigration
+from app.models import (
+    PHASE_VALUES,
+    RESULT_VALUES,
+    AppSetting,
+    SchemaMigration,
+    Sense,
+    SenseState,
+    WordSense,
+)
 
 BASELINE_VERSION = 1
 
@@ -117,6 +125,37 @@ def _accounts_migration(conn: Connection) -> None:
         )
 
 
+def _sense_graph_migration(conn: Connection) -> None:
+    """建二部图三表（幂等）并扩展 study_logs 的枚举值。
+
+    create_all 通常已经按当前模型建好新表，这里兜底；旧库的
+    study_logs.phase/result 是 MySQL ENUM，新增取值必须显式 ALTER。
+    """
+    for model in (Sense, WordSense, SenseState):
+        model.__table__.create(bind=conn, checkfirst=True)
+
+    columns = {
+        c["name"]: set(getattr(c["type"], "enums", ()) or ())
+        for c in inspect(conn).get_columns("study_logs")
+    }
+    if "meaning" not in columns.get("phase", set()):
+        conn.execute(
+            text(
+                "ALTER TABLE study_logs MODIFY phase ENUM("
+                + ", ".join(f"'{v}'" for v in PHASE_VALUES)
+                + ") NOT NULL"
+            )
+        )
+    if "partial" not in columns.get("result", set()):
+        conn.execute(
+            text(
+                "ALTER TABLE study_logs MODIFY result ENUM("
+                + ", ".join(f"'{v}'" for v in RESULT_VALUES)
+                + ") NOT NULL"
+            )
+        )
+
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(
         2,
@@ -124,6 +163,11 @@ MIGRATIONS: tuple[Migration, ...] = (
         _fsrs_schema_migration,
     ),
     Migration(3, "add multi-account users and per-user data ownership", _accounts_migration),
+    Migration(
+        4,
+        "bipartite sense graph (senses/word_senses/sense_states) + meaning/group phases",
+        _sense_graph_migration,
+    ),
 )
 
 

@@ -1,16 +1,18 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { getTodayTask, submitAnswer } from '@/api'
+import { getTodayTask, submitAnswer, submitMultiAnswer } from '@/api'
 import { useStudyStore } from '@/stores/study'
-import type { StudyWord } from '@/api/types'
+import type { MultiQuiz, StudyWord } from '@/api/types'
 
 vi.mock('@/api', () => ({
   getTodayTask: vi.fn(),
   submitAnswer: vi.fn(),
+  submitMultiAnswer: vi.fn(),
 }))
 
 const mockedGetToday = vi.mocked(getTodayTask)
 const mockedSubmit = vi.mocked(submitAnswer)
+const mockedSubmitMulti = vi.mocked(submitMultiAnswer)
 
 function word(id: number): StudyWord {
   return {
@@ -30,10 +32,27 @@ function word(id: number): StudyWord {
   }
 }
 
+function multiWord(id: number): StudyWord {
+  const quiz: MultiQuiz = {
+    type: 'meaning_multi',
+    question: `word${id}`,
+    options: [
+      { id: id * 10 + 1, text: '义项一' },
+      { id: id * 10 + 2, text: '义项二' },
+      { id: id * 10 + 3, text: '义项三' },
+      { id: id * 10 + 4, text: '义项四' },
+    ],
+    option_count: 4,
+  }
+  return { ...word(id), quiz }
+}
+
 function task(newIds: number[], reviewIds: number[]) {
   return {
     new_words: newIds.map(word),
     review_words: reviewIds.map(word),
+    sense_items: [],
+    sense_target: 0,
     new_target: newIds.length,
     review_target: reviewIds.length,
   }
@@ -44,6 +63,7 @@ describe('study store', () => {
     setActivePinia(createPinia())
     mockedGetToday.mockReset()
     mockedSubmit.mockReset()
+    mockedSubmitMulti.mockReset()
     mockedSubmit.mockResolvedValue(undefined)
   })
 
@@ -113,5 +133,41 @@ describe('study store', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it('queues sense items, grades multi answers and graduates on correct', async () => {
+    mockedGetToday.mockResolvedValue({
+      new_words: [multiWord(1)],
+      review_words: [],
+      sense_items: [multiWord(2)],
+      sense_target: 1,
+      new_target: 1,
+      review_target: 0,
+    })
+    mockedSubmitMulti.mockResolvedValue({
+      status: 'reviewing',
+      stability: 1,
+      difficulty: 4,
+      due_date: null,
+      result: 'correct',
+      selected_correct: 1,
+      correct_total: 1,
+      correct_ids: [21],
+    })
+    const store = useStudyStore()
+    await store.loadToday()
+
+    expect(store.queue.map((item) => item.kind)).toEqual(['sense', 'new'])
+    expect(store.current?.step).toBe('group')
+
+    await store.answerMulti([21])
+    expect(mockedSubmitMulti).toHaveBeenCalledWith('sense', 2, 'group', [21])
+    expect(store.graded?.result).toBe('correct')
+
+    store.continueAfterMulti()
+    expect(store.senseDone).toBe(1)
+    expect(store.current?.step).toBe('detail') // 新词多选释义：先看释义
+    store.continueNext()
+    expect(store.current?.step).toBe('meaning')
   })
 })

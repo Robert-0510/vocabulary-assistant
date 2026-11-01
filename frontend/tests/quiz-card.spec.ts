@@ -1,7 +1,7 @@
 import { mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 import QuizCard from '@/components/QuizCard.vue'
-import type { StudyWord } from '@/api/types'
+import type { LegacyQuiz, StudyWord } from '@/api/types'
 
 vi.mock('@/utils/speech', () => ({ pronounce: vi.fn() }))
 
@@ -13,6 +13,13 @@ const ElButton = {
 const ElTag = { template: '<span><slot /></span>' }
 const ElText = { template: '<span><slot /></span>' }
 
+const legacyQuiz: LegacyQuiz = {
+  type: 'cn2en',
+  question: 'v. 放弃',
+  options: ['abandon', 'benefit', 'crucial', 'emerge'],
+  answer_index: 0,
+}
+
 const word: StudyWord = {
   id: 1,
   spelling: 'abandon',
@@ -21,19 +28,14 @@ const word: StudyWord = {
   example_en: null,
   example_cn: null,
   status: 'new',
-  quiz: {
-    type: 'cn2en',
-    question: 'v. 放弃',
-    options: ['abandon', 'benefit', 'crucial', 'emerge'],
-    answer_index: 0,
-  },
+  quiz: legacyQuiz,
 }
 
 function render() {
   return mount(QuizCard, {
     props: {
       word,
-      quiz: word.quiz!,
+      quiz: legacyQuiz,
       label: '新词测试',
     },
     global: {

@@ -1,5 +1,6 @@
 import client from './client'
 import type {
+  AnswerResult,
   AppSettings,
   AuthUser,
   Book,
@@ -97,6 +98,21 @@ export function getTodayTask(): Promise<TodayTask> {
 
 export function submitAnswer(wordId: number, phase: string, result: string): Promise<unknown> {
   return client.post('/study/answer', { word_id: wordId, phase, result })
+}
+
+/** 新题型：多选，服务端判分。kind = word（释义）/ sense（等价组）。 */
+export function submitMultiAnswer(
+  kind: 'word' | 'sense',
+  targetId: number,
+  phase: string,
+  selectedIds: number[],
+): Promise<AnswerResult> {
+  return client.post('/study/answer', {
+    kind,
+    target_id: targetId,
+    phase,
+    selected_ids: selectedIds,
+  }) as Promise<AnswerResult>
 }
 
 export function getProgress(): Promise<Progress> {

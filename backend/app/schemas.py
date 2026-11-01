@@ -1,6 +1,7 @@
 """Pydantic 请求/响应模型。"""
 
 from datetime import date, datetime
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -161,11 +162,30 @@ class ImportResult(BaseModel):
 # ---------- 学习 ----------
 
 
-class QuizOut(BaseModel):
-    type: str  # en2cn 看英选中 / cn2en 看中选英 / cloze 例句挖空
+class QuizOptionOut(BaseModel):
+    id: int
+    text: str
+
+
+class LegacyQuizOut(BaseModel):
+    """旧题型（兜底）：词书没有义项数据时继续使用，前端本地判分。"""
+
+    type: Literal["en2cn", "cn2en", "cloze"]
     question: str
     options: list[str]
     answer_index: int
+
+
+class MultiQuizOut(BaseModel):
+    """新题型：多选释义 / 等价组。服务端判分，响应不含正确集合。"""
+
+    type: Literal["meaning_multi", "equiv_group"]
+    question: str
+    options: list[QuizOptionOut]
+    option_count: int
+
+
+QuizOut = Annotated[LegacyQuizOut | MultiQuizOut, Field(discriminator="type")]
 
 
 class StudyWordOut(BaseModel):
@@ -182,14 +202,26 @@ class StudyWordOut(BaseModel):
 class TodayOut(BaseModel):
     new_words: list[StudyWordOut]
     review_words: list[StudyWordOut]
+    # 义项卡（equiv_group）：id 是 sense_id，spelling 是锚词，definition 是义项名
+    sense_items: list[StudyWordOut] = Field(default_factory=list)
+    sense_target: int = 0
     new_target: int
     review_target: int
 
 
 class AnswerIn(BaseModel):
-    word_id: int
-    phase: str
-    result: str
+    """新契约用 kind/target_id/selected_ids；旧契约用 word_id/result，继续兼容。"""
+
+    model_config = ConfigDict(extra="ignore")
+
+    kind: Literal["word", "sense"] = "word"
+    target_id: int | None = None
+    phase: str | None = None
+    selected_ids: list[int] = Field(default_factory=list)
+    response_ms: int | None = None
+    # 旧契约（自评 / 单选）
+    word_id: int | None = None
+    result: str | None = None
 
 
 class AnswerOut(BaseModel):
@@ -197,6 +229,11 @@ class AnswerOut(BaseModel):
     stability: float | None = None
     difficulty: float | None = None
     due_date: date | None = None
+    # 判分结果（作答后回传，可展示漏选/错选）
+    result: str | None = None
+    selected_correct: int = 0
+    correct_total: int = 0
+    correct_ids: list[int] = Field(default_factory=list)
 
 
 class ProgressOut(BaseModel):
