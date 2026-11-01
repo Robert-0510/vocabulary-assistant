@@ -48,3 +48,12 @@ release/
 _local_only/
 private/
 *.backup.json
+
+# 真题与第三方词表原件（版权内容，不进入仓库；派生数据放 private/exams）
+sample/*.pdf
+
+# 真题数据工作目录（按设计总纲 §8.6：不分发词表、派生数据与提取脚本）
+analysis/
+tools/
+docs/audit/
+sample/rows.tsv
