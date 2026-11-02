@@ -1,4 +1,4 @@
-﻿"""把二部图产物导入数据库（P0）。
+"""把二部图产物导入数据库（P0）。
 
 输入（默认在工作区同级的 data/ 下；此处为兼容旧布局而写的相对说明）：
     data/derived/senses.csv          义项（一行一颗星）
@@ -168,16 +168,6 @@ def chinese_gloss(text: str) -> str:
     if not parts:
         return ""
     return "；".join(parts).strip("； ")[:120]
-
-
-def definition_en(text: str) -> str | None:
-    """抽取中文之前的英文释义部分。"""
-    if not text:
-        return None
-    match = CJK.search(text)
-    english = (text[: match.start()] if match else text).strip()
-    english = re.sub(r"\s+", " ", english)
-    return english[:400] or None
 
 
 def parse_pos_tags(text: str) -> list[str]:
@@ -408,7 +398,6 @@ def build_graph(
         sense_objs[row.code] = Sense(
             book_id=book.id,
             label_zh=label,
-            definition_en=definition_en(row.gloss),
             pos=pos,
             status=status,
         )
@@ -420,7 +409,6 @@ def build_graph(
         main = sense_objs.get(main_code)
         if source is None or main is None:
             continue
-        source.merged_into = main.id
         source.status = MERGED_STATUS
 
     # 5) 边：合并义项的成员并入主义项；每个 (word, sense) 只写一次

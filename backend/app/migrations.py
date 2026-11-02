@@ -156,6 +156,31 @@ def _sense_graph_migration(conn: Connection) -> None:
         )
 
 
+def _sense_simplify_migration(conn: Connection) -> None:
+    """v5：简化义项图映射。
+
+    - 去掉没人用的列：senses.definition_en / senses.merged_into / word_senses.gloss_raw；
+    - 去掉 (book_id, label_zh, pos) 唯一键：重建后同一中文标签可以有多个义项顶点，
+      该唯一键会直接让导入失败；改成普通索引供展示查询。
+    """
+    insp = inspect(conn)
+    sense_cols = {c["name"] for c in insp.get_columns("senses")}
+    for col in ("definition_en", "merged_into"):
+        if col in sense_cols:
+            conn.execute(text(f"ALTER TABLE senses DROP COLUMN `{col}`"))
+
+    uniques = {u["name"] for u in insp.get_unique_constraints("senses")}
+    if "uq_sense_book_label_pos" in uniques:
+        conn.execute(text("ALTER TABLE senses DROP INDEX uq_sense_book_label_pos"))
+    indexes = {i["name"] for i in inspect(conn).get_indexes("senses")}
+    if "ix_sense_book_label" not in indexes:
+        conn.execute(text("ALTER TABLE senses ADD INDEX ix_sense_book_label (book_id, label_zh)"))
+
+    ws_cols = {c["name"] for c in inspect(conn).get_columns("word_senses")}
+    if "gloss_raw" in ws_cols:
+        conn.execute(text("ALTER TABLE word_senses DROP COLUMN gloss_raw"))
+
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(
         2,
@@ -167,6 +192,11 @@ MIGRATIONS: tuple[Migration, ...] = (
         4,
         "bipartite sense graph (senses/word_senses/sense_states) + meaning/group phases",
         _sense_graph_migration,
+    ),
+    Migration(
+        5,
+        "simplify sense graph: drop definition_en/merged_into/gloss_raw, relax sense label uniqueness",
+        _sense_simplify_migration,
     ),
 )
 

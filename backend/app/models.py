@@ -187,13 +187,13 @@ class AppSetting(Base):
 class Sense(Base):
     """义项顶点（二部图右侧）。
 
-    label_zh 是规范名（短中文义项），不同措辞放 word_senses.gloss_raw；
-    合并只留痕：旧顶点 status='retired' + merged_into 指向规范义项。
+    label_zh 只是展示名，**不唯一**（同一中文可以有多个义项顶点），
+    因此不再用 (book_id, label_zh, pos) 做唯一键，只建普通索引。
     """
 
     __tablename__ = "senses"
     __table_args__ = (
-        UniqueConstraint("book_id", "label_zh", "pos", name="uq_sense_book_label_pos"),
+        Index("ix_sense_book_label", "book_id", "label_zh"),
         Index("ix_sense_book_status", "book_id", "status"),
         {"mysql_charset": "utf8mb4"},
     )
@@ -203,10 +203,8 @@ class Sense(Base):
         BigInteger, ForeignKey("word_books.id", ondelete="CASCADE"), nullable=False
     )
     label_zh: Mapped[str] = mapped_column(String(120), nullable=False)
-    definition_en: Mapped[str | None] = mapped_column(String(400))
     pos: Mapped[str] = mapped_column(String(16), nullable=False, default="adj")
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="needs_review")
-    merged_into: Mapped[int | None] = mapped_column(BigInteger)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
@@ -229,7 +227,6 @@ class WordSense(Base):
     sense_id: Mapped[int] = mapped_column(
         BigInteger, ForeignKey("senses.id", ondelete="CASCADE"), nullable=False
     )
-    gloss_raw: Mapped[str | None] = mapped_column(String(200))
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="active")
 
 

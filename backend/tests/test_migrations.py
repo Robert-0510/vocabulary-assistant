@@ -37,8 +37,10 @@ def test_migrations_applied(api_client):
     assert {"state", "step", "stability", "difficulty", "due", "last_review"} <= state_cols
     assert not {"ease", "interval_days", "due_date", "last_review_at"} & state_cols
 
-    assert {"book_id", "label_zh", "pos", "status", "merged_into"} <= sense_cols
-    assert {"book_id", "word_id", "sense_id", "gloss_raw", "status"} <= word_sense_cols
+    assert {"book_id", "label_zh", "pos", "status"} <= sense_cols
+    assert not {"definition_en", "merged_into"} & sense_cols
+    assert {"book_id", "word_id", "sense_id", "status"} <= word_sense_cols
+    assert "gloss_raw" not in word_sense_cols
     assert {
         "sense_id",
         "book_id",

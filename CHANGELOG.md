@@ -2,28 +2,37 @@
 
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased]
+## [2.0.0] - 2026-11-03
 
 ### 新增
 
-- **词汇—释义二部图**：新增 `senses`（义项）、`word_senses`（词↔义项边）、`sense_states`（义项卡）三张表与迁移 v4；等价关系不再存“词—词”边，而是“共享同一义项”
+- **词汇—释义二部图**：新增 `senses`（义项）、`word_senses`（词↔义项边）、`sense_states`（义项卡）三张表；等价关系不再存“词—词”边，而是“共享同一义项”
 - **两种新题型**：`meaning_multi`（看单词，多选全部释义）与 `equiv_group`（看锚词，多选同义组成员）；服务端判分，不下发答案
 - **评级映射**：全对 → Good、部分正确 → **Hard**（首次启用）、全错 → Again；FSRS 算法与参数不变
 - **义项级 FSRS**：一张义项卡 = 一组同义替换，多义词按义项拆成多张卡；词级卡保留给没有同义伙伴的义项
-- **真题导入流水线**：`scripts/check_exam_answers.py`（校验答案表）、`scripts/import_exam.py`（答案 → JSON）、`scripts/import_sense_graph.py`（义项图 → 数据库，幂等，支持 `--book-id` / `--force` / `--dry-run`）
+- **义项判定四级优先级**（题目答案 → 等价词表 → 机经中文释义 → 普通词典/语义相似度），逐级筛选；义项相似性按同义/反义关系库判定语义，不再用字面重合
+- **第 4 级词典兜底**：有道词典抓取 1,016 个无中文释义的词（查到 1,010 个），配合《同义关系库》《反义关系库》做语义判定
+- **人工复核闭环**：379 个枢纽词两轮分级，37 个经人工裁决并归档到 `docs/audit/`（含时间戳与 SHA-256）
+- **顶点重建**：以枢纽等价类为单位重建 857 个义项 / 2,105 条边 / 1,759 词，全部可出题
+- **导入与初始化脚本**：`scripts/import_vertices_v5.py`（v5 顶点 → 数据库，幂等）、`scripts/setup_default_book.py`（建账号/词书/词状态并导入）
+- **真题导入流水线**：`scripts/check_exam_answers.py`、`scripts/import_exam.py`、`scripts/import_sense_graph.py`
 - **前端**：`MeaningMultiCard`、`EquivGroupCard`、`SenseResultPanel` 三个组件；学习状态机新增 `meaning` / `group` 步骤；`1–9` 键切换选项、回车提交
-- **文档**：`docs/design/二部图数据表示.md`（图在库里怎么存 + SQL 还原）、`docs/operations/新功能交接单.md`、`docs/operations/实现大事记.md`
+- **文档**：`docs/design/二部图数据表示.md`、`docs/operations/新功能交接单.md`、`docs/operations/实现大事记.md`
 
 ### 变更
 
 - `/api/study/progress` 增加 `sense_target` / `sense_done`；`new_done` 计入新题型对应的 `meaning` 阶段
 - 词书里没有义项数据时，自动回退到原有题型（向后兼容）
+- **迁移 v5 简化义项图映射**：删 `senses.definition_en` / `senses.merged_into` / `word_senses.gloss_raw`；删 `(book_id, label_zh, pos)` 唯一键（重建后同一中文标签可对应多个义项顶点）
+- 义项规模由 v4 的 1,135 收敛到 857（题库答案优先 + 语义判定，减少碎片）
 
 ### 修复
 
-- 义项碎片化：同一概念曾被拆成多个义项顶点（`capricious` 一度散落在 6 个义项里，导致多选题出现 6 个“正确选项”）；改为按「边」聚类后为 831 个义项，`capricious` 收敛为 2 个
+- 义项碎片化：同一概念曾被拆成多个义项顶点（`capricious` 一度散落在 6 个义项里，导致多选题出现 6 个“正确选项”）
+- 人工裁决被判反：`commonplace` 人工判「合并」却被词性守卫拆成 5 个两词义项，现人工优先于机器规则
+- 同词义项重名：同一词的多个义项共用锚词释义，释义题判重后返回空、词被静默跳过；现在义项名会追加区分成员（如「觉察分辨（perceptive）」）
+- `needs_review` 阈值由「≥6 词」调整为「≥9 词」：旧阈值会把 31 个正常词挡在题目之外
 - 进度统计漏算新题型，答完题后进度条仍为 0
-- 删除与规范位置重复的文档副本
 
 ### 移除
 
@@ -33,7 +42,8 @@
 ### 已知限制
 
 - 尚未做用户实验，缺少学习效果数据
-- 6 个超过 8 个词的义项被标记为待复核（多由松散等价边串联）
+- 机经词条里 74 个词的末段义项中文在 PDF 抽取时丢失，只能按标记段计数
+- 题库词对中含 11 条短语对（如 `go beyond~transcend`），暂按单词处理
 
 ## [1.0.0] - 2026-10-21
 
