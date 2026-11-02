@@ -241,6 +241,9 @@ class ProgressOut(BaseModel):
     review_target: int
     new_done: int
     review_done: int
+    # 义项卡进度（equiv_group 题型）：与词级进度分开统计，避免混算
+    sense_target: int = 0
+    sense_done: int = 0
 
 
 # ---------- 统计 ----------

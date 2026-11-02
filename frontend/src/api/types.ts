@@ -119,6 +119,9 @@ export interface Progress {
   review_target: number
   new_done: number
   review_done: number
+  /** 义项卡（equiv_group）进度：与词级进度分开统计 */
+  sense_target?: number
+  sense_done?: number
 }
 
 export interface StatsOverview {

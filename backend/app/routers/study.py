@@ -587,10 +587,14 @@ def today_progress(db: Session = Depends(get_db), user: User = Depends(get_curre
             StudyLog.studied_at >= day_start,
         )
     ).all()
-    new_done = len({w for w, p in logs if p in ("new_first", "new_quiz")})
+    # 词级进度：新词自评/挖空 + 多选释义（meaning）
+    new_done = len({w for w, p in logs if p in ("new_first", "new_quiz", "meaning")})
     review_done = len({w for w, p in logs if p in ("review", "relearn")})
+    # 义项卡进度（equiv_group）：按义项去重，与词级进度分开统计
+    sense_done = len({w for w, p in logs if p == "group"})
 
     new_target, review_target = setting.new_per_day, setting.review_per_day
+    sense_target = sense_done
     owns_active_book = setting.active_book_id is not None and db.scalar(
         select(WordBook.id).where(
             WordBook.id == setting.active_book_id, WordBook.user_id == user.id
@@ -623,10 +627,26 @@ def today_progress(db: Session = Depends(get_db), user: User = Depends(get_curre
         )
         new_target = min(new_target, new_done + int(remaining_new))
         review_target = min(review_target, review_done + int(remaining_due))
+        remaining_sense = (
+            db.scalar(
+                select(func.count())
+                .select_from(SenseState)
+                .join(Sense, Sense.id == SenseState.sense_id)
+                .where(
+                    SenseState.book_id == setting.active_book_id,
+                    SenseState.due <= now,
+                    Sense.status == "active",
+                )
+            )
+            or 0
+        )
+        sense_target = sense_done + int(remaining_sense)
 
     return ProgressOut(
         new_target=new_target,
         review_target=review_target,
         new_done=new_done,
         review_done=review_done,
+        sense_target=sense_target,
+        sense_done=sense_done,
     )
