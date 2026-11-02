@@ -72,7 +72,7 @@
 
 ### 方式二：一键启动（源码，已构建前端）
 
-双击项目根目录的 **run.bat**。它会启动服务并打开浏览器；关闭命令行窗口即停止。
+在项目根目录运行 `backend\.venv\Scripts\python.exe launcher.py`。它会启动服务并打开浏览器；关闭命令行窗口即停止。
 
 前置：`frontend/dist` 已存在，且 `backend/.venv` 已安装依赖。
 
@@ -240,8 +240,8 @@ npm run build
 ## 构建与发布
 
 ```bash
-# 一键构建 exe（会自动安装构建依赖、构建前端、复制许可文件并输出 SHA-256）
-build_exe.bat
+# 一键构建 exe（安装构建依赖、构建前端、打包、复制许可文件并输出 SHA-256）
+backend\.venv\Scripts\python.exe scripts\build_exe.py
 
 # 生成源码发布包（排除 .env / 构建产物 / 依赖 / 版权资料）
 backend\.venv\Scripts\python.exe scripts\package_release.py

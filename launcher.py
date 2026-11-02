@@ -1,7 +1,7 @@
-"""一键启动器：拉起 FastAPI（同进程线程）→ 就绪后自动打开浏览器。
+﻿"""一键启动器：拉起 FastAPI（同进程线程）→ 就绪后自动打开浏览器。
 
 用法：
-- 源码运行：backend\\.venv\\Scripts\\python.exe launcher.py（或直接双击 run.bat）
+- 源码运行：backend\\.venv\\Scripts\\python.exe launcher.py
 - 打包后的 exe：双击即用
   - 配置优先读取 exe 同目录的旧版 .env；否则使用 %APPDATA%\\背单词助手\\.env
   - 可用 VOCAB_ENV_FILE 指定配置文件，或用 VOCAB_NO_BROWSER=1 禁止自动打开浏览器

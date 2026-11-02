@@ -1,4 +1,4 @@
-"""生成发布压缩包（源码包或含 exe 的运行包）。
+﻿"""生成发布压缩包（源码包或含 exe 的运行包）。
 
 用法：
     python scripts/package_release.py                # 源码包
@@ -101,7 +101,7 @@ def main() -> int:
 
     exe = ROOT / "backend" / "dist" / "背单词助手.exe"
     if args.with_exe and not exe.is_file():
-        raise SystemExit(f"未找到 {exe}，请先运行 build_exe.bat")
+        raise SystemExit(f"未找到 {exe}，请先运行 scripts/build_exe.py")
 
     with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         for path in files:

@@ -1,4 +1,4 @@
-# 发布清单
+﻿# 发布清单
 
 发布前逐项勾选。建议在干净的检出目录和一台干净的 Windows 机器上各走一遍。
 
@@ -64,7 +64,7 @@ npm run build
 ## 5. 构建与产物
 
 ```bash
-build_exe.bat
+scripts/build_exe.py
 backend\.venv\Scripts\python.exe scripts\package_release.py
 backend\.venv\Scripts\python.exe scripts\package_release.py --with-exe
 ```
