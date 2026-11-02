@@ -1,10 +1,11 @@
-"""把二部图产物导入数据库（P0）。
+﻿"""把二部图产物导入数据库（P0）。
 
-输入（默认在仓库 analysis/ 与 docs/audit/ 下）：
-    analysis/senses.csv          1,017 个义项
-    analysis/sense_edges.csv     1,148 条词对边
-    analysis/review_decisions.json  26 条人工裁决
-    analysis/jjci_words.json     词性 / 中文释义兜底
+输入（默认在工作区同级的 data/ 下；此处为兼容旧布局而写的相对说明）：
+    data/derived/senses.csv          义项（一行一颗星）
+    data/derived/sense_edges.csv     词对 → 义项
+    data/derived/review_decisions.json  人工裁决
+    data/derived/jjci_words.json     词性 / 中文释义兜底
+    data/audit/2026-11-02-sense-review/review_decisions.json
 
 目标库：AppConfig.database_url（backend/.env）。
 
@@ -23,7 +24,7 @@
 用法：
     cd backend && python ../scripts/import_sense_graph.py
     python scripts/import_sense_graph.py --book-id 3 --force
-    python scripts/import_sense_graph.py --analysis-dir analysis --dry-run
+    python scripts/import_sense_graph.py --analysis-dir ../data/derived --dry-run
 """
 
 from __future__ import annotations
@@ -52,8 +53,19 @@ from app.models import AppSetting, Sense, SenseState, Word, WordBook, WordSense 
 from app.seed import init_db  # noqa: E402
 from app.services.scheduler import utcnow_naive  # noqa: E402
 
-DEFAULT_ANALYSIS = REPO_ROOT / "analysis"
-DEFAULT_AUDIT = REPO_ROOT / "docs" / "audit" / "2026-11-02-sense-review" / "review_decisions.json"
+# 数据目录：与代码分离，默认放在仓库同级的 data/（工作区布局 vocabulary_assistant/{src,data}）。
+# 兼容旧布局（数据曾在仓库内的 analysis/ 与 docs/audit/）。
+WORKSPACE_DATA = REPO_ROOT.parent / "data"
+_LEGACY_ANALYSIS = REPO_ROOT / "analysis"
+
+DEFAULT_ANALYSIS = (
+    WORKSPACE_DATA / "derived" if (WORKSPACE_DATA / "derived").is_dir() else _LEGACY_ANALYSIS
+)
+DEFAULT_AUDIT = (
+    WORKSPACE_DATA / "audit" / "2026-11-02-sense-review" / "review_decisions.json"
+    if (WORKSPACE_DATA / "audit").is_dir()
+    else REPO_ROOT / "docs" / "audit" / "2026-11-02-sense-review" / "review_decisions.json"
+)
 
 CJK = re.compile(r"[\u4e00-\u9fff]+")
 POS_PATTERN = re.compile(r"(?<![a-z])(adj|adv|verb|noun|v|n|phrase)\.", re.IGNORECASE)

@@ -49,10 +49,12 @@ _local_only/
 private/
 *.backup.json
 
-# 真题与第三方词表原件（版权内容，不进入仓库；派生数据放 private/exams）
+# 真题与第三方词表原件（版权内容，不进入仓库）
 sample/*.pdf
 
-# 真题数据工作目录（按设计总纲 §8.6：不分发词表、派生数据与提取脚本）
+# 真题数据与提取脚本：按设计总纲 §8.6 不分发。
+# 正式位置已移到仓库外的工作区 data/ 目录（vocabulary_assistant/data/{exams,derived,audit,raw}）；
+# 这里保留忽略规则，防止有人再放回仓库。
 analysis/
 tools/
 docs/audit/
