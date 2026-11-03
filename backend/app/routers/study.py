@@ -20,9 +20,7 @@ from app.auth import get_current_user
 from app.database import get_db
 from app.models import (
     PHASE_VALUES,
-    RESULT_VALUES,
     Sense,
-    SenseState,
     StudyLog,
     User,
     Word,
@@ -33,7 +31,6 @@ from app.models import (
 from app.schemas import (
     AnswerIn,
     AnswerOut,
-    LegacyQuizOut,
     MultiQuizOut,
     ProgressOut,
     QuizOptionOut,
@@ -75,128 +72,22 @@ def _book_option_pool(db: Session, book_id: int) -> _OptionPool:
     return _OptionPool(list(words))
 
 
-def _sample_others(values: tuple[str, ...] | list[str], correct: str, n: int = 3) -> list[str]:
-    """从候选池随机取 n 个不同于正确项的值（有界重试 + 线性兜底）。"""
-    if not values:
-        return []
-    blocked = {correct.strip().lower()}
-    picked: list[str] = []
-    for _ in range(max(20, n * 10)):
-        value = random.choice(values)
-        key = value.strip().lower()
-        if key in blocked:
-            continue
-        blocked.add(key)
-        picked.append(value)
-        if len(picked) == n:
-            return picked
-    for value in values:
-        key = value.strip().lower()
-        if key in blocked:
-            continue
-        blocked.add(key)
-        picked.append(value)
-        if len(picked) == n:
-            break
-    return picked
-
-
-def _random_others(db: Session, book_id: int, exclude_id: int, column, n: int = 3) -> list[str]:
-    """兼容路径：没有预取候选池时按需查询（测试/单题调用）。"""
-    vals = db.scalars(
-        select(column)
-        .where(Word.book_id == book_id, Word.id != exclude_id)
-        .order_by(func.rand())
-        .limit(n + 2)  # 多取几个，去掉重复释义后仍有 3 个干扰项
-    ).all()
-    return _unique_nonempty(vals)
-
-
-def _inflection_forms(spelling: str) -> list[str]:
-    """生成常见屈折形式（复数 / 过去式 / 进行式等），用于例句挖空。"""
-    s = spelling.lower()
-    forms = {s, s + "s", s + "es", s + "ed", s + "d", s + "ing"}
-    if s.endswith("e"):
-        forms.add(s[:-1] + "ing")  # analyze → analyzing
-    if s.endswith("y"):
-        forms.add(s[:-1] + "ied")  # carry → carried
-        forms.add(s[:-1] + "ies")  # carry → carries
-    if len(s) >= 3 and s[-1] not in "aeiou" and s[-2] in "aeiou" and s[-3] not in "aeiou":
-        forms.add(s + s[-1] + "ing")  # run → running
-        forms.add(s + s[-1] + "ed")
-    return sorted(forms, key=len, reverse=True)
-
-
-def _pack_options(correct: str, others: list[str]) -> dict:
-    """生成 4 个选项（含正确项）并打乱。"""
-    options, seen = [], {correct.strip().lower()}
-    for o in others:
-        key = o.strip().lower()
-        if key and key not in seen:
-            seen.add(key)
-            options.append(o)
-        if len(options) == 3:
-            break
-    options.append(correct)
-    random.shuffle(options)
-    return {"options": options, "answer_index": options.index(correct)}
-
-
-def build_quiz(
-    db: Session,
-    word: Word,
-    mode: str | None = None,
-    pool: _OptionPool | None = None,
-) -> LegacyQuizOut | None:
-    """旧题型兜底：en2cn 看英选中 / cn2en 看中选英 / cloze 例句挖空。"""
-    if mode is None:
-        mode = random.choice(["en2cn", "cn2en"])
-
-    if mode == "cloze" and word.example_en:
-        forms = _inflection_forms(word.spelling)
-        pattern = r"\b(?:" + "|".join(re.escape(f) for f in forms) + r")\b"
-        sentence = re.sub(pattern, "____", word.example_en, count=1, flags=re.IGNORECASE)
-        if "____" in sentence:
-            others = (
-                _sample_others(pool.spellings, word.spelling)
-                if pool is not None
-                else _random_others(db, word.book_id, word.id, Word.spelling)
-            )
-            packed = _pack_options(word.spelling, others)
-            return LegacyQuizOut(type="cloze", question=sentence, **packed)
-        mode = "en2cn"  # 例句里挖不出该词，退化为看英选中
-
-    if mode == "en2cn":
-        others = (
-            _sample_others(pool.definitions, word.definition)
-            if pool is not None
-            else _random_others(db, word.book_id, word.id, Word.definition)
-        )
-        packed = _pack_options(word.definition, others)
-        return LegacyQuizOut(type="en2cn", question=word.spelling, **packed)
-
-    others = (
-        _sample_others(pool.spellings, word.spelling)
-        if pool is not None
-        else _random_others(db, word.book_id, word.id, Word.spelling)
-    )
-    packed = _pack_options(word.spelling, others)
-    return LegacyQuizOut(type="cn2en", question=word.definition, **packed)
-
-
 class _SenseIndex:
-    """一本书的义项图：词→义项、义项→成员、义项名。"""
+    """一本书的义项图：词→义项、义项→成员、义项名、是否精选。"""
 
     def __init__(self, rows) -> None:
         self.word_to_senses: dict[int, set[int]] = defaultdict(set)
         self.sense_to_words: dict[int, set[int]] = defaultdict(set)
         self.label_by_sense: dict[int, str] = {}
         self.pos_by_sense: dict[int, str] = {}
-        for word_id, sense_id, label, pos in rows:
+        self.curated_senses: set[int] = set()
+        for word_id, sense_id, label, pos, is_curated in rows:
             self.word_to_senses[int(word_id)].add(int(sense_id))
             self.sense_to_words[int(sense_id)].add(int(word_id))
             self.label_by_sense[int(sense_id)] = label
             self.pos_by_sense[int(sense_id)] = pos
+            if is_curated:
+                self.curated_senses.add(int(sense_id))
 
     def __bool__(self) -> bool:
         return bool(self.label_by_sense)
@@ -204,7 +95,13 @@ class _SenseIndex:
 
 def _load_sense_index(db: Session, book_id: int) -> _SenseIndex:
     rows = db.execute(
-        select(WordSense.word_id, WordSense.sense_id, Sense.label_zh, Sense.pos)
+        select(
+            WordSense.word_id,
+            WordSense.sense_id,
+            Sense.label_zh,
+            Sense.pos,
+            Sense.is_curated,
+        )
         .join(Sense, Sense.id == WordSense.sense_id)
         .where(
             WordSense.book_id == book_id,
@@ -215,9 +112,28 @@ def _load_sense_index(db: Session, book_id: int) -> _SenseIndex:
     return _SenseIndex(rows)
 
 
-def _pick_anchor(members: set[int], index: _SenseIndex) -> int:
-    """等价组代表词：图内度=1（叶子）优先，其次按词 ID 稳定排序。"""
-    return min(members, key=lambda word_id: (len(index.word_to_senses.get(word_id, ())), word_id))
+MAX_ANCHOR_SENSES = 3
+
+
+def _pick_anchor(members: set[int], index: _SenseIndex) -> int | None:
+    """代表词：义项数最少的成员；义项数 >3 的词不能当代表词。"""
+    if not members:
+        return None
+    best = min(members, key=lambda word_id: (len(index.word_to_senses.get(word_id, ())), word_id))
+    if len(index.word_to_senses.get(best, ())) > MAX_ANCHOR_SENSES:
+        return None
+    return best
+
+
+def _is_representative(word_id: int, index: _SenseIndex) -> bool:
+    """该词是否至少是一个可考等价组的代表词（只看精选义项）。"""
+    for sense_id in index.word_to_senses.get(word_id, ()):
+        if sense_id not in index.curated_senses:
+            continue
+        members = index.sense_to_words.get(sense_id, set())
+        if len(members) >= 2 and _pick_anchor(members, index) == word_id:
+            return True
+    return False
 
 
 def _build_meaning_quiz(word: Word, index: _SenseIndex) -> MultiQuizOut | None:
@@ -249,9 +165,10 @@ def _build_meaning_quiz(word: Word, index: _SenseIndex) -> MultiQuizOut | None:
         distractor_pool.append(sense_id)
         used_texts.add(label.lower())
     needed = option_count - len(sense_ids)
-    if len(distractor_pool) < needed:
+    # 小词书的义项池可能不够凑满标准选项数：有多少用多少，至少保证 1 个干扰项
+    if not distractor_pool:
         return None
-    picks = random.sample(distractor_pool, needed)
+    picks = random.sample(distractor_pool, min(needed, len(distractor_pool)))
 
     options = [QuizOptionOut(id=sense_id, text=display(sense_id)) for sense_id in sense_ids]
     options += [
@@ -269,11 +186,13 @@ def _build_meaning_quiz(word: Word, index: _SenseIndex) -> MultiQuizOut | None:
 def _build_equiv_quiz(
     sense_id: int, index: _SenseIndex, pool: _OptionPool
 ) -> tuple[MultiQuizOut, int] | None:
-    """等价组：锚词 + 星内成员 + 2 个星外干扰词；正确项 = 星内除锚词外的全部。"""
+    """等价组：代表词 + 星内其它成员 + 2 个多义词干扰项；正确项 = 星内除代表词外的全部。"""
     members = index.sense_to_words.get(sense_id, set())
-    if len(members) < 2:
+    if len(members) < 2 or sense_id not in index.curated_senses:
         return None
     anchor_id = _pick_anchor(members, index)
+    if anchor_id is None:
+        return None
     anchor = pool.by_id.get(anchor_id)
     if anchor is None:
         return None
@@ -289,11 +208,20 @@ def _build_equiv_quiz(
     blocked_spellings = {word.spelling.lower() for word in correct_words} | {
         anchor.spelling.lower()
     }
+    # 干扰项优先从多义词里抽：它们的义项多，作为「等价」候选更有迷惑性
     candidates = [
         word
         for word in pool.words
-        if word.id not in blocked_ids and word.spelling.lower() not in blocked_spellings
+        if word.id not in blocked_ids
+        and word.spelling.lower() not in blocked_spellings
+        and len(index.word_to_senses.get(word.id, ())) > 1
     ]
+    if len(candidates) < 2:
+        candidates = [
+            word
+            for word in pool.words
+            if word.id not in blocked_ids and word.spelling.lower() not in blocked_spellings
+        ]
     if len(candidates) < 2:
         return None
     distractors = random.sample(candidates, 2)
@@ -308,22 +236,15 @@ def _build_equiv_quiz(
             question=anchor.spelling,
             options=options,
             option_count=len(options),
+            owner_word_id=anchor_id,
         ),
         anchor_id,
     )
 
 
-def _to_study_word(
-    db: Session,
-    state: WordState,
-    quiz_mode: str | None = None,
-    pool: _OptionPool | None = None,
-    index: _SenseIndex | None = None,
-) -> StudyWordOut:
+def _to_study_word(state: WordState, index: _SenseIndex) -> StudyWordOut:
+    """词题：始终是「不定项选择释义」，不再回退旧题型。"""
     w = state.word
-    quiz = _build_meaning_quiz(w, index) if index and index else None
-    if quiz is None:
-        quiz = build_quiz(db, w, quiz_mode, pool)
     return StudyWordOut(
         id=w.id,
         spelling=w.spelling,
@@ -332,23 +253,24 @@ def _to_study_word(
         example_en=w.example_en,
         example_cn=w.example_cn,
         status=state.status,
-        quiz=quiz,
+        quiz=_build_meaning_quiz(w, index),
     )
 
 
-def _to_sense_item(
-    state: SenseState, sense: Sense, index: _SenseIndex, pool: _OptionPool
+def _to_group_item(
+    state: WordState, sense_id: int, index: _SenseIndex, pool: _OptionPool
 ) -> StudyWordOut | None:
-    built = _build_equiv_quiz(sense.id, index, pool)
+    """等价组题：挂靠代表词的词卡，id 仍用 sense_id（答题时用来定位这一组）。"""
+    built = _build_equiv_quiz(sense_id, index, pool)
     if built is None:
         return None
     quiz, anchor_id = built
     anchor = pool.by_id[anchor_id]
     return StudyWordOut(
-        id=sense.id,
+        id=sense_id,
         spelling=anchor.spelling,
         phonetic=anchor.phonetic,
-        definition=sense.label_zh,
+        definition=quiz.question,
         status=state.status,
         quiz=quiz,
     )
@@ -404,27 +326,29 @@ def today_task(db: Session = Depends(get_db), user: User = Depends(get_current_u
         .limit(setting.new_per_day)
     ).all()
 
-    # 义项卡：到期的 sense_states，生成 equiv_group
-    sense_rows = db.execute(
-        select(SenseState, Sense)
-        .join(Sense, Sense.id == SenseState.sense_id)
-        .where(
-            SenseState.book_id == book_id,
-            SenseState.due <= now,
-            Sense.status == "active",
-        )
-        .order_by(SenseState.due.asc(), SenseState.lapses.desc(), SenseState.id.asc())
-        .limit(setting.review_per_day)
-    ).all()
+    # 等价组题：只为「代表词」（义项数 ≤3 且是该组代表）生成，挂在该词的词卡上
     sense_items: list[StudyWordOut] = []
-    for sense_state, sense in sense_rows:
-        item = _to_sense_item(sense_state, sense, index, pool)
+    used_senses: set[int] = set()
+    for state in list(new_states) + list(review_states):
+        if not _is_representative(state.word_id, index):
+            continue
+        candidates = [
+            sense_id
+            for sense_id in sorted(index.word_to_senses.get(state.word_id, ()))
+            if sense_id not in used_senses
+            and len(index.sense_to_words.get(sense_id, set())) >= 2
+            and _pick_anchor(index.sense_to_words[sense_id], index) == state.word_id
+        ]
+        if not candidates:
+            continue
+        item = _to_group_item(state, candidates[0], index, pool)
         if item is not None:
             sense_items.append(item)
+            used_senses.add(candidates[0])
 
     return TodayOut(
-        new_words=[_to_study_word(db, s, "cloze", pool, index) for s in new_states],
-        review_words=[_to_study_word(db, s, None, pool, index) for s in review_states],
+        new_words=[_to_study_word(s, index) for s in new_states],
+        review_words=[_to_study_word(s, index) for s in review_states],
         sense_items=sense_items,
         sense_target=len(sense_items),
         new_target=min(setting.new_per_day, len(new_states)),
@@ -432,42 +356,12 @@ def today_task(db: Session = Depends(get_db), user: User = Depends(get_current_u
     )
 
 
-def _legacy_answer(body: AnswerIn, db: Session, user: User) -> AnswerOut:
-    """旧契约：word_id + result，前端判分；保留以兼容旧客户端与旧测试。"""
-    if body.phase not in PHASE_VALUES or body.result not in RESULT_VALUES:
-        raise HTTPException(400, "phase 或 result 取值非法")
-
-    # 只能作答当前账号自己词书里的单词
-    state = db.scalar(
-        select(WordState)
-        .join(Word, Word.id == WordState.word_id)
-        .join(WordBook, WordBook.id == Word.book_id)
-        .where(WordState.word_id == body.word_id, WordBook.user_id == user.id)
-    )
-    if not state:
-        raise HTTPException(404, "单词不存在")
-
-    apply_answer(state, body.result)
-    db.add(
-        StudyLog(
-            user_id=user.id,
-            word_id=body.word_id,
-            phase=body.phase,
-            result=body.result,
-        )
-    )
-    db.commit()
-    return AnswerOut(
-        status=state.status,
-        stability=state.stability,
-        difficulty=state.difficulty,
-        due_date=to_local_date(state.due),
-        result=body.result,
-    )
-
-
 def _answer_word(body: AnswerIn, db: Session, user: User) -> AnswerOut:
-    """词级多选：正确集合 = 该词当前全部 active 义项。"""
+    """词级多选：正确集合 = 该词当前全部 active 义项。
+
+    代表词（义项数 ≤3 且有等价组）的词题只是「先背一遍」的热身，不写 FSRS；
+    该词的记忆由紧接着的等价组题记分（见 _answer_sense）。
+    """
     state = db.scalar(
         select(WordState)
         .join(Word, Word.id == WordState.word_id)
@@ -492,10 +386,14 @@ def _answer_word(body: AnswerIn, db: Session, user: User) -> AnswerOut:
     if not correct:
         raise HTTPException(400, "该词没有可判分的义项")
 
+    index = _load_sense_index(db, state.book_id)
+    scheduled = not _is_representative(body.target_id, index)
+
     selected = {int(value) for value in body.selected_ids}
     result, hit = _grade_selection(selected, correct)
     phase = body.phase or "meaning"
-    apply_answer(state, result)
+    if scheduled:
+        apply_answer(state, result)
     db.add(StudyLog(user_id=user.id, word_id=body.target_id, phase=phase, result=result))
     db.commit()
     return AnswerOut(
@@ -511,32 +409,35 @@ def _answer_word(body: AnswerIn, db: Session, user: User) -> AnswerOut:
 
 
 def _answer_sense(body: AnswerIn, db: Session, user: User) -> AnswerOut:
-    """义项级多选：只更新 sense_states，选项词（含锚词）的 word_states 不变。"""
-    row = db.execute(
-        select(Sense, SenseState)
+    """等价组多选：更新**代表词的词卡**，不给选项词写任何状态。"""
+    sense = db.scalar(
+        select(Sense)
         .join(WordBook, WordBook.id == Sense.book_id)
-        .outerjoin(SenseState, SenseState.sense_id == Sense.id)
         .where(Sense.id == body.target_id, WordBook.user_id == user.id)
-    ).first()
-    if row is None:
+    )
+    if sense is None:
         raise HTTPException(404, "义项不存在")
-    sense, state = row
     if sense.status != "active":
         raise HTTPException(400, "该义项尚未启用")
+    if not sense.is_curated:
+        raise HTTPException(400, "该义项来自上传词书，只用于单词语义题")
 
     index = _load_sense_index(db, sense.book_id)
     members = set(index.sense_to_words.get(sense.id, ()))
     if len(members) < 2:
         raise HTTPException(400, "该义项没有可考的同义成员")
     anchor_id = _pick_anchor(members, index)
+    if anchor_id is None:
+        raise HTTPException(400, "该组没有合格的代表词（义项数超过 3）")
     correct = members - {anchor_id}
 
-    if state is None:
-        state = SenseState(
-            sense_id=sense.id,
-            book_id=sense.book_id,
-            due=utcnow_naive() - timedelta(seconds=1),
+    state = db.scalar(
+        select(WordState).where(
+            WordState.word_id == anchor_id, WordState.book_id == sense.book_id
         )
+    )
+    if state is None:
+        state = WordState(word_id=anchor_id, book_id=sense.book_id)
         db.add(state)
         db.flush()
 
@@ -564,9 +465,7 @@ def submit_answer(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    # 旧契约优先：word_id + result 同时出现时按旧路径处理
-    if body.word_id is not None and body.result is not None:
-        return _legacy_answer(body, db, user)
+    # 旧契约（word_id + result）已下线：所有题型都走服务端判分的多选
     if body.target_id is None:
         raise HTTPException(422, "缺少 target_id")
     if body.phase is not None and body.phase not in PHASE_VALUES:
@@ -627,19 +526,15 @@ def today_progress(db: Session = Depends(get_db), user: User = Depends(get_curre
         )
         new_target = min(new_target, new_done + int(remaining_new))
         review_target = min(review_target, review_done + int(remaining_due))
-        remaining_sense = (
-            db.scalar(
-                select(func.count())
-                .select_from(SenseState)
-                .join(Sense, Sense.id == SenseState.sense_id)
-                .where(
-                    SenseState.book_id == setting.active_book_id,
-                    SenseState.due <= now,
-                    Sense.status == "active",
-                )
+        # 等价组题由代表词的词卡派生：统计今日还没出过的组题
+        index = _load_sense_index(db, setting.active_book_id)
+        candidates = db.scalars(
+            select(WordState).where(
+                WordState.book_id == setting.active_book_id,
+                (WordState.stability.is_(None)) | (WordState.due <= now),
             )
-            or 0
-        )
+        ).all()
+        remaining_sense = sum(1 for s in candidates if _is_representative(s.word_id, index))
         sense_target = sense_done + int(remaining_sense)
 
     return ProgressOut(
@@ -650,3 +545,4 @@ def today_progress(db: Session = Depends(get_db), user: User = Depends(get_curre
         sense_target=sense_target,
         sense_done=sense_done,
     )
+

@@ -102,7 +102,7 @@ def main(argv: list[str]) -> int:
                 sid = row["义项ID"]
                 status = STATUS_MAP.get((row.get("状态") or "").strip(), "active")
                 sense = Sense(book_id=book.id, label_zh=(row.get("中文释义") or row["锚词"])[:120],
-                              pos=(row.get("词性") or "adj")[:16], status=status)
+                              pos=(row.get("词性") or "adj")[:16], status=status, is_curated=True)
                 db.add(sense)
                 db.flush()
                 stats["senses"] += 1

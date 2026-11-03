@@ -3,31 +3,26 @@ import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import EquivGroupCard from '@/components/EquivGroupCard.vue'
 import MeaningMultiCard from '@/components/MeaningMultiCard.vue'
-import QuizCard from '@/components/QuizCard.vue'
 import PronounceButton from '@/components/PronounceButton.vue'
 import WordDetailCard from '@/components/WordDetailCard.vue'
-import type { LegacyQuiz, MultiQuiz } from '@/api/types'
+import type { MultiQuiz } from '@/api/types'
 import { useStudyStore } from '@/stores/study'
 import { pronounce } from '@/utils/speech'
 
 const store = useStudyStore()
 const router = useRouter()
 
-const meaningQuiz = computed<MultiQuiz | null>(() => {
+const EMPTY_QUIZ: MultiQuiz = { type: 'meaning_multi', question: '', options: [], option_count: 0 }
+const meaningQuiz = computed<MultiQuiz>(() => {
   const quiz = store.current?.word.quiz
-  return quiz?.type === 'meaning_multi' ? quiz : null
+  return quiz?.type === 'meaning_multi' ? quiz : EMPTY_QUIZ
 })
-const equivQuiz = computed<MultiQuiz | null>(() => {
+const equivQuiz = computed<MultiQuiz>(() => {
   const quiz = store.current?.word.quiz
-  return quiz?.type === 'equiv_group' ? quiz : null
+  return quiz?.type === 'equiv_group' ? quiz : EMPTY_QUIZ
 })
-const legacyQuiz = computed<LegacyQuiz | null>(() => {
-  const quiz = store.current?.word.quiz
-  if (!quiz) return null
-  if (quiz.type === 'en2cn' || quiz.type === 'cn2en' || quiz.type === 'cloze') return quiz
-  return null
-})
-
+const hasMeaningQuiz = computed(() => store.current?.word.quiz?.type === 'meaning_multi')
+const hasEquivQuiz = computed(() => store.current?.word.quiz?.type === 'equiv_group')
 onMounted(() => {
   store.loadToday()
   window.addEventListener('keydown', onKey)
@@ -37,8 +32,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 watch(
   () => store.current,
   (item) => {
-    // 新词首见自动读一遍
-    if (item && item.step === 'intro') {
+    // 新词/复习词首见自动读一遍
+    if (item && (item.step === 'detail' || item.step === 'meaning')) {
       setTimeout(() => pronounce(item.word.spelling), 200)
     }
   },
@@ -49,17 +44,13 @@ function onKey(e: KeyboardEvent) {
   if (store.loading || store.finished || !item) return
   if (e.code === 'Space') {
     // 测试卡内部自己处理空格发音，避免重复朗读
-    if (item.step === 'intro' || item.step === 'detail') {
+    if (item.step === 'detail') {
       e.preventDefault()
       pronounce(item.word.spelling)
     }
     return
   }
-  if (item.step === 'intro') {
-    if (e.key === '1') store.answerIntro('know')
-    else if (e.key === '2') store.answerIntro('unknown')
-    else if (e.key === '3') store.answerIntro('master')
-  } else if (item.step === 'detail') {
+  if (item.step === 'detail') {
     if (e.key === 'Enter' || e.key === '1') store.continueNext()
   }
   // quiz / recheck / meaning / group 的按键由卡片内部处理
@@ -69,11 +60,7 @@ const quizLabel = () => {
   const item = store.current
   if (!item) return ''
   if (item.kind === 'sense') return '等价组'
-  if (item.step === 'recheck') return '快速复查'
-  if (item.word.quiz?.type === 'meaning_multi') {
-    return item.kind === 'new' ? '新词释义' : '复习释义'
-  }
-  return item.kind === 'new' ? '新词测试' : '复习测试'
+  return item.kind === 'new' ? '新词释义' : '复习释义'
 }
 </script>
 
@@ -142,36 +129,8 @@ const quizLabel = () => {
       </div>
 
       <div class="study-card card-area" :aria-busy="store.busy">
-        <!-- 新词首见：自评 -->
-        <div v-if="store.current.step === 'intro'" class="intro">
-          <div class="kind-tag">
-            <el-tag :type="store.current.kind === 'new' ? 'success' : 'primary'" effect="dark">
-              {{ store.current.kind === 'new' ? '新词' : '复习' }}
-            </el-tag>
-          </div>
-          <h1 class="spelling">{{ store.current.word.spelling }}</h1>
-          <div class="phonetic-row">
-            <span v-if="store.current.word.phonetic" class="phonetic">{{
-              store.current.word.phonetic
-            }}</span>
-            <PronounceButton :word="store.current.word.spelling" size="large" />
-          </div>
-          <p class="ask">你还记得它的意思吗？</p>
-          <div class="btn-row">
-            <el-button type="success" size="large" @click="store.answerIntro('know')">
-              认识 <span class="kbd-hint">1</span>
-            </el-button>
-            <el-button type="danger" size="large" @click="store.answerIntro('unknown')">
-              不认识 <span class="kbd-hint">2</span>
-            </el-button>
-            <el-button type="primary" size="large" @click="store.answerIntro('master')">
-              熟知 <span class="kbd-hint">3</span>
-            </el-button>
-          </div>
-        </div>
-
         <!-- 详情卡：释义 + 例句 -->
-        <div v-else-if="store.current.step === 'detail'" class="detail">
+        <div v-if="store.current.step === 'detail'" class="detail">
           <WordDetailCard :key="store.current.key" :word="store.current.word" />
           <el-button type="primary" size="large" class="detail-next" @click="store.continueNext()">
             我记住了，继续 <span class="kbd-hint">回车</span>
@@ -180,7 +139,7 @@ const quizLabel = () => {
 
         <!-- 多选释义（meaning_multi） -->
         <MeaningMultiCard
-          v-else-if="meaningQuiz"
+          v-else-if="hasMeaningQuiz"
           :key="store.current.key + '-meaning'"
           :word="store.current.word"
           :quiz="meaningQuiz"
@@ -192,7 +151,7 @@ const quizLabel = () => {
 
         <!-- 等价组（equiv_group） -->
         <EquivGroupCard
-          v-else-if="equivQuiz"
+          v-else-if="hasEquivQuiz"
           :key="store.current.key + '-group'"
           :word="store.current.word"
           :quiz="equivQuiz"
@@ -202,31 +161,17 @@ const quizLabel = () => {
           @next="store.continueAfterMulti"
         />
 
-        <!-- 旧题型兜底 -->
-        <QuizCard
-          v-else-if="legacyQuiz"
-          :key="store.current.key + '-' + store.current.step"
-          :word="store.current.word"
-          :quiz="legacyQuiz"
-          :label="quizLabel()"
-          @answered="store.answerQuiz"
-          @next="store.continueNext"
-        />
       </div>
 
       <div class="kbd-tips text-muted">
         <span class="kbd-hint">空格</span>发音
-        <template v-if="store.current.step === 'intro'">
-          · <span class="kbd-hint">1</span>认识 · <span class="kbd-hint">2</span>不认识 ·
-          <span class="kbd-hint">3</span>熟知
-        </template>
-        <template v-else-if="store.current.step === 'detail'">
+        <template v-if="store.current.step === 'detail'">
           · <span class="kbd-hint">回车</span>继续
         </template>
         <template v-else-if="store.current.step === 'meaning' || store.current.step === 'group'">
           · <span class="kbd-hint">1-9</span>选择 · <span class="kbd-hint">回车</span>确定/继续
         </template>
-        <template v-else> · <span class="kbd-hint">1-4</span>选择答案 </template>
+
       </div>
     </template>
   </div>

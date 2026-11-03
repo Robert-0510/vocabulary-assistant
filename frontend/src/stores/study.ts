@@ -1,35 +1,32 @@
 /**
- * 学习会话状态机（扇贝风格）：
- * - 新词（旧题型）：自评三键 →（不认识）详情 → 测试 → 队尾快速复查
- * - 新词（多选释义）：先看释义 → 多选义项 → 服务端判分
- * - 复习词：直接测试 → 答错看详情后回队尾重学
- * - 义项卡：等价组多选（锚词 + 同义成员 + 干扰项）
+ * 学习会话状态机（2026-11 新版）：
+ * - 新词：先看释义 → 不定项选择 → 服务端判分
+ * - 复习词：直接不定项选择
+ * - 等价组：紧跟所属代表词之后，多选同义成员
+ * 旧的自评三键与 en2cn/cn2en/cloze 题型已下线。
  */
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { getTodayTask, submitAnswer, submitMultiAnswer } from '@/api'
+import { getTodayTask, submitMultiAnswer } from '@/api'
 import type { GradedAnswer, MultiQuiz, MultiResult, StudyWord } from '@/api/types'
 
 export interface QueueItem {
   key: string
   word: StudyWord
   kind: 'new' | 'review' | 'sense'
-  step: 'intro' | 'detail' | 'quiz' | 'recheck' | 'meaning' | 'group'
+  step: 'detail' | 'meaning' | 'group'
   isRequeued: boolean
-  detailNext: 'quiz' | 'recheck' | 'requeue' | 'advance'
 }
 
 let uid = 0
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 function isMultiQuiz(quiz: StudyWord['quiz']): quiz is MultiQuiz {
-  return quiz?.type === 'meaning_multi' || quiz?.type === 'equiv_group'
+  return !!quiz && (quiz.type === 'meaning_multi' || quiz.type === 'equiv_group')
 }
 
-function initialStep(kind: QueueItem['kind'], word: StudyWord): QueueItem['step'] {
+function initialStep(kind: QueueItem['kind']): QueueItem['step'] {
   if (kind === 'sense') return 'group'
-  if (isMultiQuiz(word.quiz)) return kind === 'new' ? 'detail' : 'meaning'
-  return kind === 'new' ? 'intro' : 'quiz'
+  return kind === 'new' ? 'detail' : 'meaning'
 }
 
 export const useStudyStore = defineStore('study', () => {
@@ -41,7 +38,6 @@ export const useStudyStore = defineStore('study', () => {
   const pos = ref(0)
   const busy = ref(false)
   const graded = ref<GradedAnswer | null>(null)
-
   const newTarget = ref(0)
   const reviewTarget = ref(0)
   const senseTarget = ref(0)
@@ -55,14 +51,14 @@ export const useStudyStore = defineStore('study', () => {
   const finished = computed(
     () =>
       !loading.value &&
-      !noBook.value &&
-      !emptyToday.value &&
       !error.value &&
       pos.value >= queue.value.length &&
       queue.value.length > 0,
   )
   const progressPct = computed(() =>
-    totalGraduate.value === 0 ? 0 : Math.round((graduated.value / totalGraduate.value) * 100),
+    totalGraduate.value === 0
+      ? 0
+      : Math.round((graduated.value / totalGraduate.value) * 100),
   )
 
   function makeItem(word: StudyWord, kind: QueueItem['kind'], isRequeued = false): QueueItem {
@@ -70,9 +66,8 @@ export const useStudyStore = defineStore('study', () => {
       key: `${kind[0]}${word.id}-${++uid}`,
       word,
       kind,
-      step: initialStep(kind, word),
+      step: initialStep(kind),
       isRequeued,
-      detailNext: kind === 'new' ? 'quiz' : 'requeue',
     }
   }
 
@@ -84,15 +79,35 @@ export const useStudyStore = defineStore('study', () => {
     const items: QueueItem[] = []
     const n = [...newWords]
     const r = [...reviewWords]
-    const s = [...senseItems]
-    // 新词 : 复习 ≈ 1 : 2 交替出牌；每两张牌后插一道义项卡
-    while (n.length || r.length || s.length) {
-      for (let i = 0; i < 2 && r.length; i++) {
-        items.push(makeItem(r.shift()!, 'review'))
+    // 等价组题按代表词归位：先出代表词的词题，再出它的组题
+    const groups = new Map<number, StudyWord[]>()
+    const orphans: StudyWord[] = []
+    for (const sense of senseItems) {
+      const owner = (sense.quiz as MultiQuiz | null)?.owner_word_id
+      if (owner == null) {
+        orphans.push(sense)
+        continue
       }
-      if (s.length) items.push(makeItem(s.shift()!, 'sense'))
-      if (n.length) items.push(makeItem(n.shift()!, 'new'))
+      const list = groups.get(owner) ?? []
+      list.push(sense)
+      groups.set(owner, list)
     }
+    const pushWord = (word: StudyWord, kind: QueueItem['kind']) => {
+      if (!word.quiz) return // 没有义项数据/干扰项不足的词跳过，避免卡在队首
+      items.push(makeItem(word, kind))
+      for (const sense of groups.get(word.id) ?? []) items.push(makeItem(sense, 'sense'))
+      groups.delete(word.id)
+    }
+    // 2 张复习 + 1 张新词交替出牌；组题紧跟所属代表词
+    while (n.length || r.length) {
+      for (let i = 0; i < 2 && r.length; i++) pushWord(r.shift()!, 'review')
+      if (n.length) pushWord(n.shift()!, 'new')
+    }
+    // 兜底：代表词不在今日池里时，组题仍要出（追加在末尾）
+    for (const rest of groups.values()) {
+      for (const sense of rest) items.push(makeItem(sense, 'sense'))
+    }
+    for (const sense of orphans) items.push(makeItem(sense, 'sense'))
     return items
   }
 
@@ -134,74 +149,7 @@ export const useStudyStore = defineStore('study', () => {
     else senseDone.value++
   }
 
-  function pushRelearnClone(item: QueueItem) {
-    queue.value.push({
-      key: `L${item.word.id}-${++uid}`,
-      word: item.word,
-      kind: 'review',
-      step: isMultiQuiz(item.word.quiz) ? 'meaning' : 'quiz',
-      isRequeued: true,
-      detailNext: 'requeue',
-    })
-  }
-
-  /** 新词首见自评：认识 / 不认识 / 熟知（仅旧题型路径） */
-  async function answerIntro(result: 'know' | 'unknown' | 'master') {
-    const item = current.value
-    if (!item || busy.value) return
-    busy.value = true
-    try {
-      await submitAnswer(item.word.id, 'new_first', result)
-      // 三种自评都先展示释义：
-      // 不认识 → 例句挖空测试；认识/熟知 → 看完释义直接进入下一个
-      item.step = 'detail'
-      item.detailNext = result === 'unknown' ? 'quiz' : 'advance'
-    } finally {
-      busy.value = false
-    }
-  }
-
-  /** 旧题型作答（新词测试 / 复习测试 / 重学 / 快速复查） */
-  async function answerQuiz(idx: number) {
-    const item = current.value
-    const quiz = item?.word.quiz
-    if (!item || busy.value || !quiz || isMultiQuiz(quiz)) return
-    busy.value = true
-    try {
-      const correct = idx === quiz.answer_index
-      if (item.step === 'recheck') {
-        // 快速复查不重复提交（状态已在首次测试时更新）
-        if (correct) {
-          await sleep(800)
-          graduate(item)
-          pos.value++
-        }
-        return
-      }
-      const phase = item.kind === 'new' ? 'new_quiz' : item.isRequeued ? 'relearn' : 'review'
-      await submitAnswer(item.word.id, phase, correct ? 'correct' : 'wrong')
-      if (correct) {
-        await sleep(800)
-        graduate(item)
-        if (item.kind === 'new' && !item.isRequeued) {
-          // 新词答对 → 队尾安排一次快速复查
-          queue.value.push({
-            key: `C${item.word.id}-${++uid}`,
-            word: item.word,
-            kind: 'new',
-            step: 'recheck',
-            isRequeued: true,
-            detailNext: 'recheck',
-          })
-        }
-        pos.value++
-      }
-    } finally {
-      busy.value = false
-    }
-  }
-
-  /** 新题型作答：多选释义 / 等价组，服务端判分 */
+  /** 多选作答：多选释义 / 等价组，服务端判分 */
   async function answerMulti(ids: number[]) {
     const item = current.value
     const quiz = item?.word.quiz
@@ -210,7 +158,7 @@ export const useStudyStore = defineStore('study', () => {
     try {
       const isSense = item.kind === 'sense'
       // 词级多选沿用生命周期 phase（new_quiz / review），保证今日进度统计口径一致；
-      // 义项卡用 group。服务端同时接受 meaning，供其他客户端显式标注多选释义。
+      // 等价组用 group（服务端只更新代表词的词卡）。
       const phase = isSense
         ? 'group'
         : item.kind === 'new'
@@ -244,37 +192,17 @@ export const useStudyStore = defineStore('study', () => {
         key: `M${item.word.id}-${++uid}`,
         word: item.word,
         kind: item.kind,
-        step: item.kind === 'sense' ? 'group' : 'meaning',
+        step: initialStep(item.kind),
         isRequeued: true,
-        detailNext: 'requeue',
       })
     }
   }
 
-  /** 继续按钮：详情卡继续 / 答错后的继续 */
+  /** 新词详情卡的「继续」：进入不定项选择 */
   function continueNext() {
     const item = current.value
     if (!item || busy.value) return
-    if (item.step === 'detail') {
-      if (item.detailNext === 'quiz') {
-        item.step = isMultiQuiz(item.word.quiz) ? 'meaning' : 'quiz'
-      } else if (item.detailNext === 'recheck') item.step = 'recheck'
-      else if (item.detailNext === 'advance') {
-        // 认识/熟知：看完释义直接出队
-        graduate(item)
-        pos.value++
-      } else {
-        // 复习词答错：本项出队，克隆到队尾重学
-        graduate(item)
-        pos.value++
-        pushRelearnClone(item)
-      }
-    } else {
-      // 测试答错，先看详情再继续
-      item.detailNext =
-        item.step === 'recheck' ? 'recheck' : item.kind === 'new' ? 'quiz' : 'requeue'
-      item.step = 'detail'
-    }
+    if (item.step === 'detail') item.step = 'meaning'
   }
 
   return {
@@ -298,8 +226,6 @@ export const useStudyStore = defineStore('study', () => {
     finished,
     progressPct,
     loadToday,
-    answerIntro,
-    answerQuiz,
     answerMulti,
     continueAfterMulti,
     continueNext,

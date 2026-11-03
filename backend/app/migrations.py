@@ -181,6 +181,20 @@ def _sense_simplify_migration(conn: Connection) -> None:
         conn.execute(text("ALTER TABLE word_senses DROP COLUMN gloss_raw"))
 
 
+def _sense_curated_migration(conn: Connection) -> None:
+    """v6：义项加 is_curated 标记，把「上传拆解」与「审核词图」分开。
+
+    只有精选义项参与等价组测试；本次改造之前存在的义项全部来自离线审核管线，
+    因此统一标为 1。之后上传词书拆出来的义项默认为 0。
+    """
+    columns = {c["name"] for c in inspect(conn).get_columns("senses")}
+    if "is_curated" not in columns:
+        conn.execute(
+            text("ALTER TABLE senses ADD COLUMN is_curated TINYINT(1) NOT NULL DEFAULT 0")
+        )
+        conn.execute(text("UPDATE senses SET is_curated = 1"))
+
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(
         2,
@@ -197,6 +211,11 @@ MIGRATIONS: tuple[Migration, ...] = (
         5,
         "simplify sense graph: drop definition_en/merged_into/gloss_raw, relax sense label uniqueness",
         _sense_simplify_migration,
+    ),
+    Migration(
+        6,
+        "separate curated sense graph from uploaded-book senses (senses.is_curated)",
+        _sense_curated_migration,
     ),
 )
 

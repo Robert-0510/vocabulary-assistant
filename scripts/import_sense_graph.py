@@ -400,6 +400,7 @@ def build_graph(
             label_zh=label,
             pos=pos,
             status=status,
+            is_curated=True,
         )
         db.add(sense_objs[row.code])
 

@@ -183,6 +183,8 @@ class MultiQuizOut(BaseModel):
     question: str
     options: list[QuizOptionOut]
     option_count: int
+    # 等价组专用：这道题挂靠的代表词 id（前端据此把组题排在词题之后）
+    owner_word_id: int | None = None
 
 
 QuizOut = Annotated[LegacyQuizOut | MultiQuizOut, Field(discriminator="type")]

@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.auth import get_current_user
 from app.config import config
 from app.database import get_db
-from app.models import StudyLog, User, Word, WordBook, WordState
+from app.models import Sense, StudyLog, User, Word, WordBook, WordSense, WordState
 from app.schemas import BookCounts, BookOut, UploadResult, WordOut, WordPage, WordUpdateIn
 from app.seed import ensure_settings
 from app.services.md_parser import (
@@ -23,6 +23,7 @@ from app.services.md_parser import (
     parse_markdown,
 )
 from app.services.scheduler import to_local_date
+from app.services.senses import rebuild_word_senses, split_senses
 
 router = APIRouter(prefix="/api/books", tags=["词书"])
 
@@ -97,6 +98,31 @@ async def upload_book(
     db.add_all(word_objs)
     db.flush()
     db.add_all([WordState(word_id=w.id, book_id=book.id) for w in word_objs])
+
+    # 义项拆解：每个词按词性标记切成 1..n 个义项；同书内「释义+词性」相同的义项复用，
+    # 这样共同释义会自然形成等价组，而不是每个词各建一条。
+    plan = [split_senses(w.definition) for w in word_objs]
+    keys: list[tuple[str, str]] = []
+    for parts in plan:
+        for pos, label in parts:
+            key = (label, (pos or "phrase")[:16])
+            if key not in keys:
+                keys.append(key)
+    sense_objs = [Sense(book_id=book.id, label_zh=label, pos=pos, status="active") for label, pos in keys]
+    db.add_all(sense_objs)
+    db.flush()
+    sense_by_key = dict(zip(keys, sense_objs))
+    edges = [
+        WordSense(
+            book_id=book.id,
+            word_id=word_obj.id,
+            sense_id=sense_by_key[(label, (pos or "phrase")[:16])].id,
+            status="active",
+        )
+        for word_obj, parts in zip(word_objs, plan)
+        for pos, label in parts
+    ]
+    db.add_all(edges)
 
     setting = ensure_settings(db, user.id)
     if setting.active_book_id is None:
@@ -280,6 +306,8 @@ def update_word(
         if not definition:
             raise HTTPException(422, "释义不能为空")
         word.definition = definition
+        db.flush()
+        rebuild_word_senses(db, book_id, word)
 
     if "phonetic" in fields:
         word.phonetic = (fields["phonetic"] or "").strip()[:MAX_PHONETIC]
@@ -305,3 +333,4 @@ def activate_book(
     setting.active_book_id = book_id
     db.commit()
     return ActivateOut(ok=True, active_book_id=book_id)
+

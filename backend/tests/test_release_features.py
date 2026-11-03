@@ -31,6 +31,19 @@ def upload(client, content=SAMPLE_BOOK, filename="book.md"):
     )
 
 
+def correct_sense_ids(word_id: int) -> list[int]:
+    """取某个词的全部义项 id（服务端判分用）。"""
+    from sqlalchemy import select
+
+    from app.database import SessionLocal
+    from app.models import WordSense
+
+    with SessionLocal() as db:
+        return sorted(
+            db.scalars(select(WordSense.sense_id).where(WordSense.word_id == word_id)).all()
+        )
+
+
 def test_change_password_revokes_sessions(api_client):
     api_client.cookies.clear()
     name = unique()
@@ -121,7 +134,12 @@ def test_reset_book_progress(auth_client):
     word_id = auth_client.get("/api/study/today").json()["new_words"][0]["id"]
     auth_client.post(
         "/api/study/answer",
-        json={"word_id": word_id, "phase": "new_first", "result": "know"},
+        json={
+            "kind": "word",
+            "target_id": word_id,
+            "phase": "meaning",
+            "selected_ids": correct_sense_ids(word_id),
+        },
     )
     before = auth_client.get(f"/api/books/{book_id}/words").json()["items"]
     assert any(w["id"] == word_id and w["status"] == "reviewing" for w in before)
@@ -191,7 +209,12 @@ def test_export_import_roundtrip(api_client):
     word_id = api_client.get("/api/study/today").json()["new_words"][0]["id"]
     api_client.post(
         "/api/study/answer",
-        json={"word_id": word_id, "phase": "new_first", "result": "know"},
+        json={
+            "kind": "word",
+            "target_id": word_id,
+            "phase": "meaning",
+            "selected_ids": correct_sense_ids(word_id),
+        },
     )
 
     export = api_client.get("/api/export")

@@ -6,7 +6,20 @@ SAMPLE_BOOK = """# 测试词书
 | benefit | /ˈbenɪfɪt/ | n. 好处 | |
 | crucial | /ˈkruːʃl/ | adj. 至关重要的 | |
 | emerge | /ɪˈmɜːdʒ/ | v. 出现 | |
+| manifest | /ˈmænɪfest/ | adj. 明显的 v. 显示 | His relief was manifest. |
 """
+
+
+def _sense_ids(book_id: int, word_id: int) -> list[int]:
+    from sqlalchemy import select
+
+    from app.database import SessionLocal
+    from app.models import WordSense
+
+    with SessionLocal() as db:
+        return sorted(
+            db.scalars(select(WordSense.sense_id).where(WordSense.word_id == word_id)).all()
+        )
 
 
 def test_health(api_client):
@@ -35,33 +48,28 @@ def test_full_study_flow(auth_client):
         files={"file": ("sample.md", SAMPLE_BOOK.encode("utf-8"), "text/markdown")},
     )
     assert resp.status_code == 200, resp.text
-    assert resp.json()["imported"] == 4
+    assert resp.json()["imported"] == 5
 
     books = api_client.get("/api/books").json()
     assert len(books) == 1 and books[0]["is_active"] is True
     book_id = books[0]["id"]
 
-    # 今日任务：4 个新词，均带题目
+    # 今日任务：4 个新词，均带 4 选项的不定项选择（服务端判分）
     today = api_client.get("/api/study/today").json()
-    assert len(today["new_words"]) == 4
-    assert all(w["quiz"] and len(w["quiz"]["options"]) == 4 for w in today["new_words"])
+    assert len(today["new_words"]) == 5
+    assert all(w["quiz"] and w["quiz"]["type"] == "meaning_multi" for w in today["new_words"])
+    assert all(w["quiz"]["option_count"] == len(w["quiz"]["options"]) for w in today["new_words"])
     word_id = today["new_words"][0]["id"]
+    correct = _sense_ids(book_id, word_id)
 
-    # 新词自评「不认识」→ 未毕业（learning）
+    # 全选正确 → 毕业（reviewing），有稳定性与难度
     resp = api_client.post(
         "/api/study/answer",
-        json={"word_id": word_id, "phase": "new_first", "result": "unknown"},
+        json={"kind": "word", "target_id": word_id, "phase": "meaning", "selected_ids": correct},
     )
-    assert resp.status_code == 200
-    assert resp.json()["status"] == "learning"
-
-    # 挖空答对 → 毕业（reviewing），有稳定性与难度
-    resp = api_client.post(
-        "/api/study/answer",
-        json={"word_id": word_id, "phase": "new_quiz", "result": "correct"},
-    )
-    assert resp.status_code == 200
+    assert resp.status_code == 200, resp.text
     body = resp.json()
+    assert body["result"] == "correct"
     assert body["status"] == "reviewing"
     assert body["stability"] > 0
     assert 1.0 <= body["difficulty"] <= 10.0
@@ -69,42 +77,47 @@ def test_full_study_flow(auth_client):
     # 进度：该词已计入新词完成
     progress = api_client.get("/api/study/progress").json()
     assert progress["new_done"] == 1
-    assert progress["new_target"] == 4
+    assert progress["new_target"] == 5
 
-    # 第二个词自评「认识」→ 直接毕业
-    second_id = next(w["id"] for w in today["new_words"] if w["id"] != word_id)
-    resp = api_client.post(
+    # 多义词漏选 → partial（Hard），不重置 reps
+    second_id = next(w["id"] for w in today["new_words"] if w["spelling"] == "manifest")
+    second_correct = _sense_ids(book_id, second_id)
+    partial = api_client.post(
         "/api/study/answer",
-        json={"word_id": second_id, "phase": "new_first", "result": "know"},
-    )
-    assert resp.json()["status"] == "reviewing"
+        json={
+            "kind": "word",
+            "target_id": second_id,
+            "phase": "meaning",
+            "selected_ids": [second_correct[0]],
+        },
+    ).json()
+    assert partial["result"] == "partial"
+    assert partial["selected_correct"] == 1
 
-    # 复习答错 → 退回重学
+    # 一个都不选 → wrong
     wrong = api_client.post(
         "/api/study/answer",
-        json={"word_id": second_id, "phase": "review", "result": "wrong"},
+        json={"kind": "word", "target_id": second_id, "phase": "review", "selected_ids": []},
     ).json()
-    assert wrong["status"] == "learning"
-
-    # 重学答对 → 再次毕业
-    relearn = api_client.post(
-        "/api/study/answer",
-        json={"word_id": second_id, "phase": "relearn", "result": "correct"},
-    ).json()
-    assert relearn["status"] == "reviewing"
+    assert wrong["result"] == "wrong"
 
     # 参数校验
     assert (
         api_client.post(
             "/api/study/answer",
-            json={"word_id": word_id, "phase": "bogus", "result": "correct"},
+            json={"kind": "word", "phase": "meaning", "selected_ids": []},
         ).status_code
-        == 400
+        == 422
     )
     assert (
         api_client.post(
             "/api/study/answer",
-            json={"word_id": 999999, "phase": "review", "result": "correct"},
+            json={
+                "kind": "word",
+                "target_id": 999999,
+                "phase": "review",
+                "selected_ids": [1],
+            },
         ).status_code
         == 404
     )

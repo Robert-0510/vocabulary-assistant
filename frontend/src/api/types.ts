@@ -68,6 +68,8 @@ export interface MultiQuiz {
   question: string
   options: QuizOption[]
   option_count: number
+  /** 等价组专用：挂靠的代表词 id，用于把组题排在对应词题之后 */
+  owner_word_id?: number | null
 }
 
 export type Quiz = LegacyQuiz | MultiQuiz

@@ -1,7 +1,7 @@
-﻿{
+{
   "name": "vocab-frontend",
   "private": true,
-  "version": "2.0.0",
+  "version": "2.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -39,4 +39,3 @@
     "vue-tsc": "2.2.12"
   }
 }
-

@@ -4,6 +4,7 @@ from datetime import datetime
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     DateTime,
     Enum,
     ForeignKey,
@@ -205,6 +206,9 @@ class Sense(Base):
     label_zh: Mapped[str] = mapped_column(String(120), nullable=False)
     pos: Mapped[str] = mapped_column(String(16), nullable=False, default="adj")
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="needs_review")
+    # 是否来自「经过审核的等价词图」：只有精选义项参与等价组测试；
+    # 用户上传词书拆出来的义项只服务单词语义题（不定项选择）
+    is_curated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
