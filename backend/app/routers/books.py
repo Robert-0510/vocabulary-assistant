@@ -108,10 +108,12 @@ async def upload_book(
             key = (label, (pos or "phrase")[:16])
             if key not in keys:
                 keys.append(key)
-    sense_objs = [Sense(book_id=book.id, label_zh=label, pos=pos, status="active") for label, pos in keys]
+    sense_objs = [
+        Sense(book_id=book.id, label_zh=label, pos=pos, status="active") for label, pos in keys
+    ]
     db.add_all(sense_objs)
     db.flush()
-    sense_by_key = dict(zip(keys, sense_objs))
+    sense_by_key = dict(zip(keys, sense_objs, strict=False))
     edges = [
         WordSense(
             book_id=book.id,
@@ -119,7 +121,7 @@ async def upload_book(
             sense_id=sense_by_key[(label, (pos or "phrase")[:16])].id,
             status="active",
         )
-        for word_obj, parts in zip(word_objs, plan)
+        for word_obj, parts in zip(word_objs, plan, strict=False)
         for pos, label in parts
     ]
     db.add_all(edges)
@@ -333,4 +335,3 @@ def activate_book(
     setting.active_book_id = book_id
     db.commit()
     return ActivateOut(ok=True, active_book_id=book_id)
-

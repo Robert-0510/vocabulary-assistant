@@ -11,10 +11,9 @@ SAMPLE_BOOK = """# 测试词书
 
 
 def _sense_ids(book_id: int, word_id: int) -> list[int]:
-    from sqlalchemy import select
-
     from app.database import SessionLocal
     from app.models import WordSense
+    from sqlalchemy import select
 
     with SessionLocal() as db:
         return sorted(

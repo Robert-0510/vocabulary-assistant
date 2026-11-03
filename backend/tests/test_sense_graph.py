@@ -42,9 +42,9 @@ def senses_of(word_id_: int) -> dict[int, str]:
 
     with SessionLocal() as db:
         rows = db.execute(
-            select(Sense.id, Sense.label_zh).join(WordSense, WordSense.sense_id == Sense.id).where(
-                WordSense.word_id == word_id_
-            )
+            select(Sense.id, Sense.label_zh)
+            .join(WordSense, WordSense.sense_id == Sense.id)
+            .where(WordSense.word_id == word_id_)
         ).all()
         return {sense_id: label for sense_id, label in rows}
 
@@ -61,10 +61,9 @@ def sense_members(sense_id: int) -> set[int]:
 
 def curate(book_id: int) -> None:
     """把上传书拆出来的义项标成精选，模拟「审核过的等价词图」。"""
-    from sqlalchemy import update
-
     from app.database import SessionLocal
     from app.models import Sense
+    from sqlalchemy import update
 
     with SessionLocal() as db:
         db.execute(update(Sense).where(Sense.book_id == book_id).values(is_curated=True))
@@ -121,7 +120,7 @@ def test_polysemous_word_gets_correct_plus_two_options(auth_client):
 
 def test_partial_answer_maps_to_hard_without_resetting_reps(auth_client):
     book_id = upload_book(auth_client)
-    target = word_id(book_id, "manifest")     # 多义词，非代表词 → 词题计分
+    target = word_id(book_id, "manifest")  # 多义词，非代表词 → 词题计分
     correct = sorted(senses_of(target))
 
     first = auth_client.post(
@@ -165,7 +164,7 @@ def test_representative_meaning_answer_is_warmup(auth_client):
     """代表词的词题只热身：不写 FSRS，等等价组题记分。"""
     book_id = upload_book(auth_client)
     curate(book_id)
-    target = word_id(book_id, "evident")      # 组内义项最少 → 代表词
+    target = word_id(book_id, "evident")  # 组内义项最少 → 代表词
     correct = sorted(senses_of(target))
 
     resp = auth_client.post(

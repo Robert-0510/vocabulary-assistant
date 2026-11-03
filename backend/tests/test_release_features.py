@@ -33,10 +33,9 @@ def upload(client, content=SAMPLE_BOOK, filename="book.md"):
 
 def correct_sense_ids(word_id: int) -> list[int]:
     """取某个词的全部义项 id（服务端判分用）。"""
-    from sqlalchemy import select
-
     from app.database import SessionLocal
     from app.models import WordSense
+    from sqlalchemy import select
 
     with SessionLocal() as db:
         return sorted(
@@ -265,9 +264,8 @@ def test_today_task_does_not_issue_per_word_queries(auth_client):
     book_id = upload(auth_client, "\n".join(lines), "big.md").json()["book_id"]
     auth_client.put("/api/settings", json={"new_per_day": 40, "review_per_day": 50})
 
-    from sqlalchemy import event
-
     from app.database import engine
+    from sqlalchemy import event
 
     statements: list[str] = []
 

@@ -71,13 +71,7 @@ describe('study store', () => {
     const store = useStudyStore()
     await store.loadToday()
     // 2 张复习 + 1 张新词交替
-    expect(store.queue.map((item) => item.kind)).toEqual([
-      'review',
-      'review',
-      'new',
-      'new',
-      'new',
-    ])
+    expect(store.queue.map((item) => item.kind)).toEqual(['review', 'review', 'new', 'new', 'new'])
   })
 
   it('new words show the definition first, then the multi-select quiz', async () => {

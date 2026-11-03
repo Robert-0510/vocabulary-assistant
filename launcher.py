@@ -1,4 +1,4 @@
-﻿"""一键启动器：拉起 FastAPI（同进程线程）→ 就绪后自动打开浏览器。
+"""一键启动器：拉起 FastAPI（同进程线程）→ 就绪后自动打开浏览器。
 
 用法：
 - 源码运行：backend\\.venv\\Scripts\\python.exe launcher.py
@@ -96,9 +96,8 @@ def port_in_use() -> bool:
 def db_failure_hint() -> str:
     """服务线程退出时，尽量给出可执行的数据库排查结论。"""
     try:
-        from sqlalchemy import text
-
         from app.database import engine
+        from sqlalchemy import text
 
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
@@ -132,7 +131,6 @@ def main() -> None:
     prepare_env()
 
     import uvicorn
-
     from app.main import app as fastapi_app  # 直接导入对象，便于 PyInstaller 静态分析打包
 
     if server_up():

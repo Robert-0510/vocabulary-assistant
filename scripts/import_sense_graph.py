@@ -36,7 +36,6 @@ import sys
 import traceback
 from collections import Counter, defaultdict
 from dataclasses import dataclass
-from datetime import timedelta
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -44,13 +43,11 @@ BACKEND_DIR = REPO_ROOT / "backend"
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
-from sqlalchemy import delete, func, select  # noqa: E402
-from sqlalchemy.orm import Session  # noqa: E402
-
 from app.database import SessionLocal  # noqa: E402
 from app.models import AppSetting, Sense, Word, WordBook, WordSense  # noqa: E402
 from app.seed import init_db  # noqa: E402
-from app.services.scheduler import utcnow_naive  # noqa: E402
+from sqlalchemy import delete, func, select  # noqa: E402
+from sqlalchemy.orm import Session  # noqa: E402
 
 # 数据目录：与代码分离，默认放在仓库同级的 data/（工作区布局 vocabulary_assistant/{src,data}）。
 # 兼容旧布局（数据曾在仓库内的 analysis/ 与 docs/audit/）。
@@ -442,7 +439,6 @@ def build_graph(
             rows_written += 1
 
     db.flush()
-
 
     db.flush()
     return {

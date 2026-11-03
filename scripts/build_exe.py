@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """构建 Windows 单文件 exe（替代已删除的 build_exe.bat）。
 
 步骤与原 bat 一致：
@@ -11,6 +10,7 @@
     backend\\.venv\\Scripts\\python.exe scripts\\build_exe.py
     backend\\.venv\\Scripts\\python.exe scripts\\build_exe.py --skip-install --skip-frontend
 """
+
 from __future__ import annotations
 
 import argparse
@@ -53,7 +53,17 @@ def main(argv: list[str]) -> int:
 
     if not args.skip_install:
         print("[1/4] 安装构建依赖…")
-        run([python, "-m", "pip", "install", "--quiet", "-r", str(BACKEND / "requirements-build.txt")])
+        run(
+            [
+                python,
+                "-m",
+                "pip",
+                "install",
+                "--quiet",
+                "-r",
+                str(BACKEND / "requirements-build.txt"),
+            ]
+        )
 
     if not args.skip_frontend:
         print("[2/4] 构建前端…")
@@ -64,22 +74,42 @@ def main(argv: list[str]) -> int:
     print("[3/4] PyInstaller 打包…")
     pyinstaller = BACKEND / ".venv" / "Scripts" / "pyinstaller.exe"
     exe = str(pyinstaller if pyinstaller.exists() else Path(python).with_name("pyinstaller.exe"))
-    run([
-        exe, "--onefile", "--clean", "--noconfirm", "--name", APP_NAME,
-        "--icon", str(ROOT / "assets" / "app.ico"),
-        "--version-file", str(ROOT / "assets" / "version_info.txt"),
-        "--paths", str(BACKEND),
-        "--add-data", f"{FRONTEND / 'dist'};app_static",
-        "--hidden-import", "app.main",
-        "--hidden-import", "app.routers.backup",
-        "--hidden-import", "sqlalchemy.dialects.mysql.pymysql",
-        "--hidden-import", "uvicorn.loops.auto",
-        "--hidden-import", "uvicorn.protocols.http.auto",
-        "--hidden-import", "uvicorn.protocols.websockets.auto",
-        "--hidden-import", "uvicorn.lifespan.on",
-        "--hidden-import", "fsrs",
-        str(ROOT / "launcher.py"),
-    ], cwd=BACKEND)
+    run(
+        [
+            exe,
+            "--onefile",
+            "--clean",
+            "--noconfirm",
+            "--name",
+            APP_NAME,
+            "--icon",
+            str(ROOT / "assets" / "app.ico"),
+            "--version-file",
+            str(ROOT / "assets" / "version_info.txt"),
+            "--paths",
+            str(BACKEND),
+            "--add-data",
+            f"{FRONTEND / 'dist'};app_static",
+            "--hidden-import",
+            "app.main",
+            "--hidden-import",
+            "app.routers.backup",
+            "--hidden-import",
+            "sqlalchemy.dialects.mysql.pymysql",
+            "--hidden-import",
+            "uvicorn.loops.auto",
+            "--hidden-import",
+            "uvicorn.protocols.http.auto",
+            "--hidden-import",
+            "uvicorn.protocols.websockets.auto",
+            "--hidden-import",
+            "uvicorn.lifespan.on",
+            "--hidden-import",
+            "fsrs",
+            str(ROOT / "launcher.py"),
+        ],
+        cwd=BACKEND,
+    )
 
     print("[4/4] 复制许可与说明…")
     for src, dst in COPY_FILES:

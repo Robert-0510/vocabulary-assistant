@@ -1,4 +1,4 @@
-﻿"""生成发布压缩包（源码包或含 exe 的运行包）。
+"""生成发布压缩包（源码包或含 exe 的运行包）。
 
 用法：
     python scripts/package_release.py                # 源码包

@@ -1,7 +1,7 @@
 """Pydantic 请求/响应模型。"""
 
 from datetime import date, datetime
-from typing import Annotated, Literal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -176,8 +176,6 @@ class MultiQuizOut(BaseModel):
     option_count: int
     # 等价组专用：这道题挂靠的代表词 id（前端据此把组题排在词题之后）
     owner_word_id: int | None = None
-
-
 
 
 class StudyWordOut(BaseModel):

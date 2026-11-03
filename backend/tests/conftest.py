@@ -70,10 +70,9 @@ def api_client():
         RATE_LIMIT_ENABLED="false",
     )
 
-    from fastapi.testclient import TestClient
-
     from app.database import engine
     from app.main import app
+    from fastapi.testclient import TestClient
 
     try:
         with TestClient(app) as client:

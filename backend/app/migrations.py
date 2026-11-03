@@ -188,9 +188,7 @@ def _sense_curated_migration(conn: Connection) -> None:
     """
     columns = {c["name"] for c in inspect(conn).get_columns("senses")}
     if "is_curated" not in columns:
-        conn.execute(
-            text("ALTER TABLE senses ADD COLUMN is_curated TINYINT(1) NOT NULL DEFAULT 0")
-        )
+        conn.execute(text("ALTER TABLE senses ADD COLUMN is_curated TINYINT(1) NOT NULL DEFAULT 0"))
         conn.execute(text("UPDATE senses SET is_curated = 1"))
 
 

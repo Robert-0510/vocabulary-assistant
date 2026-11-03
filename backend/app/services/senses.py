@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """上传词书的义项拆解：把一条释义切成 1..n 个义项。
 
 规则（与离线管线一致的口径）：
@@ -8,6 +7,7 @@
 
 这样「v. 放弃；抛弃」是 1 个义项，「adj. 学术的 n. 学者」是 2 个义项。
 """
+
 from __future__ import annotations
 
 import re
@@ -20,7 +20,7 @@ from app.models import Sense, Word, WordSense
 POS_TAG = re.compile(r"(?<![A-Za-z])(adj|adv|n|v|vt|vi|prep|conj|pron|num)\.", re.I)
 POS_MAP = {"vt": "v", "vi": "v"}
 MAX_LABEL = 120
-MAX_SENSES_PER_WORD = 6      # 选项数 = 义项数 + 2，超过 6 会超出 1–9 键的范围
+MAX_SENSES_PER_WORD = 6  # 选项数 = 义项数 + 2，超过 6 会超出 1–9 键的范围
 
 
 def split_senses(definition: str) -> list[tuple[str, str]]:
@@ -44,9 +44,9 @@ def split_senses(definition: str) -> list[tuple[str, str]]:
 
     if not parts:
         return [("", text[:MAX_LABEL])]
-    if len(parts) > MAX_SENSES_PER_WORD:      # 合并超出上限的义项，避免选项超过 9 个
+    if len(parts) > MAX_SENSES_PER_WORD:  # 合并超出上限的义项，避免选项超过 9 个
         head = parts[: MAX_SENSES_PER_WORD - 1]
-        rest = "；".join(gloss for _, gloss in parts[MAX_SENSES_PER_WORD - 1:])
+        rest = "；".join(gloss for _, gloss in parts[MAX_SENSES_PER_WORD - 1 :])
         head.append((parts[MAX_SENSES_PER_WORD - 1][0], rest[:MAX_LABEL]))
         parts = head
     return parts

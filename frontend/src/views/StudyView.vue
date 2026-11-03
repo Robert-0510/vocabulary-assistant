@@ -1,9 +1,8 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import EquivGroupCard from '@/components/EquivGroupCard.vue'
 import MeaningMultiCard from '@/components/MeaningMultiCard.vue'
-import PronounceButton from '@/components/PronounceButton.vue'
 import WordDetailCard from '@/components/WordDetailCard.vue'
 import type { MultiQuiz } from '@/api/types'
 import { useStudyStore } from '@/stores/study'
@@ -160,7 +159,6 @@ const quizLabel = () => {
           @submit="store.answerMulti"
           @next="store.continueAfterMulti"
         />
-
       </div>
 
       <div class="kbd-tips text-muted">
@@ -171,7 +169,6 @@ const quizLabel = () => {
         <template v-else-if="store.current.step === 'meaning' || store.current.step === 'group'">
           · <span class="kbd-hint">1-9</span>选择 · <span class="kbd-hint">回车</span>确定/继续
         </template>
-
       </div>
     </template>
   </div>

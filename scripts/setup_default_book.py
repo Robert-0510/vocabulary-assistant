@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """初始化默认账号 + 词书，并导入 v5 顶点。
 
 只在本机开发库上跑一次；重复执行会复用已有账号/词书，加 --force 重建义项图。
@@ -6,6 +5,7 @@
 用法：
     python scripts/setup_default_book.py --username admin --password <口令> [--force]
 """
+
 from __future__ import annotations
 
 import argparse
@@ -20,12 +20,11 @@ BACKEND_DIR = REPO_ROOT / "backend"
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
-from sqlalchemy import func, select  # noqa: E402
-
 from app.auth import hash_password  # noqa: E402
 from app.database import SessionLocal  # noqa: E402
-from app.models import AppSetting, Sense, User, Word, WordBook, WordSense, WordState  # noqa: E402
+from app.models import Sense, User, Word, WordBook, WordSense, WordState  # noqa: E402
 from app.seed import ensure_settings, init_db  # noqa: E402
+from sqlalchemy import func, select  # noqa: E402
 
 DATA = REPO_ROOT.parent / "data" / "derived"
 BOOK_NAME = "GRE 等价词义项"
@@ -46,8 +45,14 @@ def main(argv: list[str]) -> int:
     if args.password is None and not _user_exists(args.username):
         ap.error("创建新账号必须提供 --password")
 
-    vocab = {e["word"]: e for e in json.loads((DATA / "jjci_words.json").read_text(encoding="utf-8"))}
-    dict_cn = json.loads((DATA / "dict_cn.json").read_text(encoding="utf-8")) if (DATA / "dict_cn.json").exists() else {}
+    vocab = {
+        e["word"]: e for e in json.loads((DATA / "jjci_words.json").read_text(encoding="utf-8"))
+    }
+    dict_cn = (
+        json.loads((DATA / "dict_cn.json").read_text(encoding="utf-8"))
+        if (DATA / "dict_cn.json").exists()
+        else {}
+    )
     members = [r for r in csv.DictReader(open(DATA / "word_senses_v5.csv", encoding="utf-8-sig"))]
     words = sorted({r["词"] for r in members})
 
@@ -62,14 +67,20 @@ def main(argv: list[str]) -> int:
         else:
             print(f"复用账号：{args.username}")
 
-        book = db.scalar(select(WordBook).where(WordBook.user_id == user.id, WordBook.name == BOOK_NAME))
+        book = db.scalar(
+            select(WordBook).where(WordBook.user_id == user.id, WordBook.name == BOOK_NAME)
+        )
         if not book:
-            book = WordBook(user_id=user.id, name=BOOK_NAME, description="GRE 等价词二部图（v5）", word_count=0)
+            book = WordBook(
+                user_id=user.id, name=BOOK_NAME, description="GRE 等价词二部图（v5）", word_count=0
+            )
             db.add(book)
             db.flush()
             print("新建词书")
 
-        existing = {w.spelling.lower() for w in db.scalars(select(Word).where(Word.book_id == book.id))}
+        existing = {
+            w.spelling.lower() for w in db.scalars(select(Word).where(Word.book_id == book.id))
+        }
         to_add = []
         for i, w in enumerate(words):
             if w in existing:
@@ -86,13 +97,21 @@ def main(argv: list[str]) -> int:
             db.flush()
             print(f"新增单词：{len(to_add)}")
         # 词级 FSRS 状态：上传词书时引擎会给每个词建一行，这里补齐
-        have_state = {s.word_id for s in db.scalars(select(WordState).where(WordState.book_id == book.id))}
-        missing = [w for w in db.scalars(select(Word).where(Word.book_id == book.id)) if w.id not in have_state]
+        have_state = {
+            s.word_id for s in db.scalars(select(WordState).where(WordState.book_id == book.id))
+        }
+        missing = [
+            w
+            for w in db.scalars(select(Word).where(Word.book_id == book.id))
+            if w.id not in have_state
+        ]
         if missing:
             db.add_all([WordState(word_id=w.id, book_id=book.id) for w in missing])
             db.flush()
             print(f"新增词状态：{len(missing)}")
-        book.word_count = db.scalar(select(func.count()).select_from(Word).where(Word.book_id == book.id))
+        book.word_count = db.scalar(
+            select(func.count()).select_from(Word).where(Word.book_id == book.id)
+        )
         setting = ensure_settings(db, user.id)
         setting.active_book_id = book.id
         db.commit()
@@ -108,12 +127,14 @@ def main(argv: list[str]) -> int:
         return rc
 
     with SessionLocal() as db:
-        print("库内：义项", db.scalar(select(func.count()).select_from(Sense)),
-              "边", db.scalar(select(func.count()).select_from(WordSense)))
+        print(
+            "库内：义项",
+            db.scalar(select(func.count()).select_from(Sense)),
+            "边",
+            db.scalar(select(func.count()).select_from(WordSense)),
+        )
     return 0
 
 
 if __name__ == "__main__":
     raise SystemExit(main(sys.argv[1:]))
-
-

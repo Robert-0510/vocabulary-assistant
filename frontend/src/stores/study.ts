@@ -50,15 +50,10 @@ export const useStudyStore = defineStore('study', () => {
   const current = computed<QueueItem | undefined>(() => queue.value[pos.value])
   const finished = computed(
     () =>
-      !loading.value &&
-      !error.value &&
-      pos.value >= queue.value.length &&
-      queue.value.length > 0,
+      !loading.value && !error.value && pos.value >= queue.value.length && queue.value.length > 0,
   )
   const progressPct = computed(() =>
-    totalGraduate.value === 0
-      ? 0
-      : Math.round((graduated.value / totalGraduate.value) * 100),
+    totalGraduate.value === 0 ? 0 : Math.round((graduated.value / totalGraduate.value) * 100),
   )
 
   function makeItem(word: StudyWord, kind: QueueItem['kind'], isRequeued = false): QueueItem {

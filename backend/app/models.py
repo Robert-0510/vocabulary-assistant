@@ -232,4 +232,3 @@ class WordSense(Base):
         BigInteger, ForeignKey("senses.id", ondelete="CASCADE"), nullable=False
     )
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="active")
-

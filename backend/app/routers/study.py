@@ -8,9 +8,8 @@
 """
 
 import random
-import re
 from collections import Counter, defaultdict
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
@@ -50,7 +49,7 @@ class _OptionPool:
         self.words = words
         self.by_id = {word.id: word for word in words}
         self.spellings = tuple(_unique_nonempty(word.spelling for word in words))
-  
+
 
 def _unique_nonempty(values) -> list[str]:
     result: list[str] = []
@@ -431,9 +430,7 @@ def _answer_sense(body: AnswerIn, db: Session, user: User) -> AnswerOut:
     correct = members - {anchor_id}
 
     state = db.scalar(
-        select(WordState).where(
-            WordState.word_id == anchor_id, WordState.book_id == sense.book_id
-        )
+        select(WordState).where(WordState.word_id == anchor_id, WordState.book_id == sense.book_id)
     )
     if state is None:
         state = WordState(word_id=anchor_id, book_id=sense.book_id)
@@ -544,4 +541,3 @@ def today_progress(db: Session = Depends(get_db), user: User = Depends(get_curre
         sense_target=sense_target,
         sense_done=sense_done,
     )
-
