@@ -96,10 +96,6 @@ export function getTodayTask(): Promise<TodayTask> {
   return client.get('/study/today') as Promise<TodayTask>
 }
 
-export function submitAnswer(wordId: number, phase: string, result: string): Promise<unknown> {
-  return client.post('/study/answer', { word_id: wordId, phase, result })
-}
-
 /** 新题型：多选，服务端判分。kind = word（释义）/ sense（等价组）。 */
 export function submitMultiAnswer(
   kind: 'word' | 'sense',

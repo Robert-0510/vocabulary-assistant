@@ -233,27 +233,3 @@ class WordSense(Base):
     )
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="active")
 
-
-class SenseState(Base):
-    """义项卡（FSRS），字段与 word_states 完全一致。"""
-
-    __tablename__ = "sense_states"
-    __table_args__ = (
-        Index("ix_sense_states_due", "due"),
-        {"mysql_charset": "utf8mb4"},
-    )
-
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    sense_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("senses.id", ondelete="CASCADE"), unique=True, nullable=False
-    )
-    book_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    state: Mapped[int] = mapped_column(SmallInteger, default=1, nullable=False)
-    step: Mapped[int | None] = mapped_column(SmallInteger)
-    stability: Mapped[float | None] = mapped_column(Numeric(12, 4))
-    difficulty: Mapped[float | None] = mapped_column(Numeric(12, 4))
-    reps: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    lapses: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    due: Mapped[datetime | None] = mapped_column(DateTime)
-    last_review: Mapped[datetime | None] = mapped_column(DateTime)
-    status: Mapped[str] = mapped_column(String(16), default="new", nullable=False)

@@ -54,14 +54,6 @@ export interface QuizOption {
   text: string
 }
 
-/** 旧题型：前端本地判分（词书没有义项数据时的兜底）。 */
-export interface LegacyQuiz {
-  type: 'en2cn' | 'cn2en' | 'cloze'
-  question: string
-  options: string[]
-  answer_index: number
-}
-
 /** 新题型：服务端判分，响应不含正确集合。 */
 export interface MultiQuiz {
   type: 'meaning_multi' | 'equiv_group'
@@ -72,7 +64,7 @@ export interface MultiQuiz {
   owner_word_id?: number | null
 }
 
-export type Quiz = LegacyQuiz | MultiQuiz
+export type Quiz = MultiQuiz
 
 export interface StudyWord {
   id: number

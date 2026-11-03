@@ -19,7 +19,6 @@ from app.models import (
     AppSetting,
     SchemaMigration,
     Sense,
-    SenseState,
     WordSense,
 )
 
@@ -131,7 +130,7 @@ def _sense_graph_migration(conn: Connection) -> None:
     create_all 通常已经按当前模型建好新表，这里兜底；旧库的
     study_logs.phase/result 是 MySQL ENUM，新增取值必须显式 ALTER。
     """
-    for model in (Sense, WordSense, SenseState):
+    for model in (Sense, WordSense):
         model.__table__.create(bind=conn, checkfirst=True)
 
     columns = {
@@ -195,6 +194,13 @@ def _sense_curated_migration(conn: Connection) -> None:
         conn.execute(text("UPDATE senses SET is_curated = 1"))
 
 
+def _drop_sense_states_migration(conn: Connection) -> None:
+    """v7：sense_states 已停用（等价组改挂代表词词卡），删除该表。"""
+    insp = inspect(conn)
+    if "sense_states" in set(insp.get_table_names()):
+        conn.execute(text("DROP TABLE sense_states"))
+
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(
         2,
@@ -217,6 +223,7 @@ MIGRATIONS: tuple[Migration, ...] = (
         "separate curated sense graph from uploaded-book senses (senses.is_curated)",
         _sense_curated_migration,
     ),
+    Migration(7, "drop unused sense_states table", _drop_sense_states_migration),
 )
 
 

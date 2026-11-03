@@ -214,14 +214,13 @@ def test_sense_answer_updates_representative_word_state_not_sense_state(auth_cli
     correct = sorted(sense_members(item["id"]) - {anchor})
 
     from app.database import SessionLocal
-    from app.models import SenseState, WordState
+    from app.models import WordState
 
     with SessionLocal() as db:
         before = {
             state.word_id: (state.status, state.stability, state.reps, state.due)
             for state in db.scalars(select(WordState)).all()
         }
-        assert db.scalars(select(SenseState)).all() == [], "新流程不再创建义项卡"
 
     resp = auth_client.post(
         "/api/study/answer",

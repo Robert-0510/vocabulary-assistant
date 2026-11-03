@@ -28,7 +28,7 @@ if str(BACKEND_DIR) not in sys.path:
 from sqlalchemy import delete, func, select  # noqa: E402
 
 from app.database import SessionLocal  # noqa: E402
-from app.models import AppSetting, Sense, SenseState, Word, WordBook, WordSense  # noqa: E402
+from app.models import AppSetting, Sense, Word, WordBook, WordSense  # noqa: E402
 from app.seed import init_db  # noqa: E402
 from app.services.scheduler import utcnow_naive  # noqa: E402
 
@@ -89,7 +89,6 @@ def main(argv: list[str]) -> int:
                       f"{sum(len(v) for v in members.values())} 条成员边")
                 return 0
             if existing:
-                db.execute(delete(SenseState).where(SenseState.book_id == book.id))
                 db.execute(delete(WordSense).where(WordSense.book_id == book.id))
                 db.execute(delete(Sense).where(Sense.book_id == book.id))
                 db.flush()
@@ -114,9 +113,6 @@ def main(argv: list[str]) -> int:
                         continue
                     db.add(WordSense(book_id=book.id, word_id=wid, sense_id=sense.id, status="active"))
                     stats["word_senses"] += 1
-                if status == "active":
-                    db.add(SenseState(sense_id=sense.id, book_id=book.id, due=now, status="new"))
-                    stats["sense_states"] += 1
             db.commit()
             book_name, book_id = book.name, book.id
         except Exception as exc:  # noqa: BLE001
@@ -128,7 +124,6 @@ def main(argv: list[str]) -> int:
     print(f"词书：{book_name} (id={book_id})")
     print(f"  义项：{stats['senses']}（active {stats['status_active']} / needs_review {stats['status_needs_review']}）")
     print(f"  边（word_senses）：{stats['word_senses']}")
-    print(f"  义项卡（sense_states）：{stats['sense_states']}")
     print(f"  词书里找不到、跳过的成员：{stats['skipped']}")
     return 0
 

@@ -20,7 +20,6 @@ def test_migrations_applied(api_client):
         "settings",
         "senses",
         "word_senses",
-        "sense_states",
     } <= tables
 
     book_cols = {c["name"] for c in inspector.get_columns("word_books")}
@@ -29,7 +28,6 @@ def test_migrations_applied(api_client):
     setting_cols = {c["name"] for c in inspector.get_columns("settings")}
     sense_cols = {c["name"] for c in inspector.get_columns("senses")}
     word_sense_cols = {c["name"] for c in inspector.get_columns("word_senses")}
-    sense_state_cols = {c["name"] for c in inspector.get_columns("sense_states")}
 
     assert "user_id" in book_cols
     assert "user_id" in log_cols
@@ -41,16 +39,7 @@ def test_migrations_applied(api_client):
     assert not {"definition_en", "merged_into"} & sense_cols
     assert {"book_id", "word_id", "sense_id", "status"} <= word_sense_cols
     assert "gloss_raw" not in word_sense_cols
-    assert {
-        "sense_id",
-        "book_id",
-        "state",
-        "stability",
-        "difficulty",
-        "due",
-        "last_review",
-        "status",
-    } <= sense_state_cols
+    assert "sense_states" not in tables
 
     # 迁移 v4 扩展的枚举值（旧库必须 ALTER，新库由 create_all 直接建好）
     log_types = {

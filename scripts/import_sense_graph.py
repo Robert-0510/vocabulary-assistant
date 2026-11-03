@@ -18,7 +18,6 @@
   成员与边并入锚词的主义项；拆分 → 保持拆分并置 active；
 - word_senses 写入每个义项星的全部成员（成员词列 + 边的端点），
   按 (word_id, sense_id) 去重 —— 同一义项星里锚词会在多条边中重复出现；
-- 只给 active 义项建 sense_states（FSRS 新卡，due=now，等待首次复习）；
 - 脚本幂等：目标词书已有义项则跳过，--force 先清空该词书的图再重建。
 
 用法：
@@ -49,7 +48,7 @@ from sqlalchemy import delete, func, select  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
 
 from app.database import SessionLocal  # noqa: E402
-from app.models import AppSetting, Sense, SenseState, Word, WordBook, WordSense  # noqa: E402
+from app.models import AppSetting, Sense, Word, WordBook, WordSense  # noqa: E402
 from app.seed import init_db  # noqa: E402
 from app.services.scheduler import utcnow_naive  # noqa: E402
 
@@ -307,7 +306,6 @@ def existing_graph_size(db: Session, book_id: int) -> int:
 
 def clear_book_graph(db: Session, book_id: int) -> None:
     """按外键顺序清空一本书的图（义项卡 → 边 → 顶点）。"""
-    db.execute(delete(SenseState).where(SenseState.book_id == book_id))
     db.execute(delete(WordSense).where(WordSense.book_id == book_id))
     db.execute(delete(Sense).where(Sense.book_id == book_id))
     db.flush()
@@ -445,23 +443,12 @@ def build_graph(
 
     db.flush()
 
-    # 6) 义项卡：只给 active 义项建新卡（due 略早于 now，保证首次 today 就能取到）
-    now = utcnow_naive() - timedelta(seconds=1)
-    cards = 0
-    for code, sense in sense_objs.items():
-        if sense.status != ACTIVE_STATUS:
-            continue
-        if len(resolved_members.get(code, ())) < 2:
-            continue
-        db.add(SenseState(sense_id=sense.id, book_id=book.id, due=now, status="new"))
-        cards += 1
 
     db.flush()
     return {
         "senses": len(sense_objs),
         "merged_senses": len(merge_into),
         "word_senses": rows_written,
-        "sense_states": cards,
         "skipped_words": len(skipped_words),
         "edges": len(edges),
         "skipped": skipped_words,
@@ -528,7 +515,6 @@ def main(argv: list[str]) -> int:
     print(f"词书：{book_name} (id={book_id})")
     print(f"  义项：{stats['senses']}（其中合并 / retired：{stats['merged_senses']}）")
     print(f"  边（word_senses）：{stats['word_senses']}")
-    print(f"  义项卡（sense_states）：{stats['sense_states']}")
     print(f"  输入词对：{stats['edges']} 条")
     print(f"  跳过词书外的词：{stats['skipped_words']} 个")
     if stats["skipped_words"]:

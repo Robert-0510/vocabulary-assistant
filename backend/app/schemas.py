@@ -167,15 +167,6 @@ class QuizOptionOut(BaseModel):
     text: str
 
 
-class LegacyQuizOut(BaseModel):
-    """旧题型（兜底）：词书没有义项数据时继续使用，前端本地判分。"""
-
-    type: Literal["en2cn", "cn2en", "cloze"]
-    question: str
-    options: list[str]
-    answer_index: int
-
-
 class MultiQuizOut(BaseModel):
     """新题型：多选释义 / 等价组。服务端判分，响应不含正确集合。"""
 
@@ -187,7 +178,6 @@ class MultiQuizOut(BaseModel):
     owner_word_id: int | None = None
 
 
-QuizOut = Annotated[LegacyQuizOut | MultiQuizOut, Field(discriminator="type")]
 
 
 class StudyWordOut(BaseModel):
@@ -198,7 +188,7 @@ class StudyWordOut(BaseModel):
     example_en: str | None = None
     example_cn: str | None = None
     status: str
-    quiz: QuizOut | None = None
+    quiz: MultiQuizOut | None = None
 
 
 class TodayOut(BaseModel):

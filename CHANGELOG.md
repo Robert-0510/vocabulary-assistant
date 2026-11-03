@@ -2,6 +2,19 @@
 
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [2.1.1] - 2026-11-03
+
+### 移除
+
+- **删除 `sense_states` 表**（迁移 v7）：等价组已改挂代表词词卡，该表不再有任何读路径，导入脚本也不再写入
+- 删除后端 `LegacyQuizOut` / `QuizOut` 联合类型，`quiz` 收敛为 `MultiQuizOut | None`
+- 删除前端 `submitAnswer()`、`LegacyQuiz` 类型与旧题型测试；删除无引用的 `QuizCard.vue`
+- 删除 `_OptionPool.definitions`（仅供旧题型使用）
+
+### 变更
+
+- `study_logs.phase` 的旧枚举值（`new_first` 等）保留在数据库里作为历史数据，新代码不再写入
+
 ## [2.1.0] - 2026-11-03
 
 ### 新增

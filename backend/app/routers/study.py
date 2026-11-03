@@ -2,7 +2,7 @@
 
 题型分层：
 - meaning_multi：看英文单词，多选全部释义（义项），词级卡 word_states 计分；
-- equiv_group：看锚词，多选同义组成员，义项卡 sense_states 计分，选项词不写状态；
+- equiv_group：看代表词，多选同义组成员，更新代表词词卡，选项词不写状态；
 - en2cn / cn2en / cloze：词书没有义项数据时的兜底题型（旧契约）。
 多选判分在服务端完成，今日任务响应不包含正确集合。
 """
@@ -50,8 +50,7 @@ class _OptionPool:
         self.words = words
         self.by_id = {word.id: word for word in words}
         self.spellings = tuple(_unique_nonempty(word.spelling for word in words))
-        self.definitions = tuple(_unique_nonempty(word.definition for word in words))
-
+  
 
 def _unique_nonempty(values) -> list[str]:
     result: list[str] = []
